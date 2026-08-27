@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(
   process.env.STRIPE_SECRET_KEY!
 );
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 export async function POST(request: Request) {
   try {
-    const { items, customer } = await request.json();
+    const { items, customer } =
+      await request.json();
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -21,6 +28,70 @@ export async function POST(request: Request) {
         { error: "Customer email is required" },
         { status: 400 }
       );
+    }
+
+    /*
+     * Check stock before creating the Stripe
+     * checkout session.
+     */
+    for (const item of items) {
+      const quantity = Number(item.quantity);
+
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        return NextResponse.json(
+          {
+            error: `Invalid quantity for ${item.name}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const { data: product, error: stockError } =
+        await supabase
+          .from("products")
+          .select("id, name, stock")
+          .eq("name", item.name)
+          .maybeSingle();
+
+      if (stockError) {
+        console.error(
+          "STOCK CHECK ERROR:",
+          stockError
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Unable to check product stock.",
+          },
+          { status: 500 }
+        );
+      }
+
+      if (!product) {
+        return NextResponse.json(
+          {
+            error:
+              `${item.name} is no longer available.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const availableStock =
+        Number(product.stock || 0);
+
+      if (availableStock < quantity) {
+        return NextResponse.json(
+          {
+            error:
+              availableStock === 0
+                ? `${item.name} is out of stock.`
+                : `Only ${availableStock} of ${item.name} available.`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const host =
@@ -37,7 +108,8 @@ export async function POST(request: Request) {
       request.headers.get("x-forwarded-proto") ||
       "https";
 
-    const siteUrl = `${protocol}://${host}`;
+    const siteUrl =
+      `${protocol}://${host}`;
 
     const session =
       await stripe.checkout.sessions.create({
@@ -47,17 +119,25 @@ export async function POST(request: Request) {
 
         customer_email: customer.email,
 
-        billing_address_collection: "required",
+        billing_address_collection:
+          "required",
 
         shipping_address_collection: {
           allowed_countries: ["GB"],
         },
 
         metadata: {
-          customer_name: customer.name || "",
-          customer_address: customer.address || "",
-          customer_town: customer.town || "",
-          customer_postcode: customer.postcode || "",
+          customer_name:
+            customer.name || "",
+
+          customer_address:
+            customer.address || "",
+
+          customer_town:
+            customer.town || "",
+
+          customer_postcode:
+            customer.postcode || "",
         },
 
         line_items: items.map(
@@ -73,12 +153,14 @@ export async function POST(request: Request) {
                 name: item.name,
               },
 
-              unit_amount: Math.round(
-                Number(item.price) * 100
-              ),
+              unit_amount:
+                Math.round(
+                  Number(item.price) * 100
+                ),
             },
 
-            quantity: Number(item.quantity),
+            quantity:
+              Number(item.quantity),
           })
         ),
 

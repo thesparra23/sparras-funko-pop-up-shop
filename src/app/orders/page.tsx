@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import {
+  Suspense,
+  useEffect,
+  useState,
+} from "react";
+import { useSearchParams } from "next/navigation";
 
 type FulfilmentStatus =
   | "processing"
@@ -31,25 +35,51 @@ type OrderItem = {
   price: number | null;
 };
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL;
+const statusInfo: Record<
+  FulfilmentStatus,
+  {
+    label: string;
+    icon: string;
+    color: string;
+    background: string;
+  }
+> = {
+  processing: {
+    label: "Processing",
+    icon: "⏳",
+    color: "#7c3aed",
+    background: "#ede9fe",
+  },
+  packed: {
+    label: "Packed",
+    icon: "📦",
+    color: "#b45309",
+    background: "#fef3c7",
+  },
+  shipped: {
+    label: "Shipped",
+    icon: "🚚",
+    color: "#1d4ed8",
+    background: "#dbeafe",
+  },
+  completed: {
+    label: "Completed",
+    icon: "✅",
+    color: "#15803d",
+    background: "#dcfce7",
+  },
+};
 
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+function OrdersPageContent() {
+  const searchParams = useSearchParams();
 
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(
-        supabaseUrl,
-        supabaseAnonKey
-      )
-    : null;
+  const sessionId =
+    searchParams.get("session_id");
 
-export default function OrdersPage() {
-  const [orders, setOrders] =
-    useState<Order[]>([]);
+  const [order, setOrder] =
+    useState<Order | null>(null);
 
-  const [orderItems, setOrderItems] =
+  const [items, setItems] =
     useState<OrderItem[]>([]);
 
   const [loading, setLoading] =
@@ -58,161 +88,25 @@ export default function OrdersPage() {
   const [error, setError] =
     useState("");
 
-  const [updatingOrder, setUpdatingOrder] =
-    useState<string | null>(null);
+  async function loadOrder() {
+    if (!sessionId) {
+      setError(
+        "No order reference was provided."
+      );
+      setLoading(false);
+      return;
+    }
 
-  async function loadOrders() {
     setLoading(true);
-    setError("");
-
-    if (!supabase) {
-      setError(
-        "Supabase is not configured. Please check the environment variables."
-      );
-      setLoading(false);
-      return;
-    }
-
-    const {
-      data: ordersData,
-      error: ordersError,
-    } = await supabase
-      .from("orders")
-      .select(
-        "id, customer_name, customer_email, address, town, postcode, total, status, payment_status, fulfilment_status, created_at"
-      )
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (ordersError) {
-      console.error(
-        "Error loading orders:",
-        ordersError
-      );
-
-      setError(
-        "Unable to load orders."
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    const {
-      data: itemsData,
-      error: itemsError,
-    } = await supabase
-      .from("order_items")
-      .select(
-        "id, order_id, product_name, quantity, price"
-      );
-
-    if (itemsError) {
-      console.error(
-        "Error loading order items:",
-        itemsError
-      );
-
-      setOrders(ordersData || []);
-
-      setError(
-        "Orders loaded, but order items could not be loaded."
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    setOrders(ordersData || []);
-    setOrderItems(itemsData || []);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  function getItemsForOrder(
-    orderId: string
-  ) {
-    return orderItems.filter(
-      (item) =>
-        item.order_id === orderId
-    );
-  }
-
-  function formatDate(date: string) {
-    return new Date(date).toLocaleString(
-      "en-GB",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }
-    );
-  }
-
-  function formatMoney(
-    amount: number | null
-  ) {
-    return `£${Number(
-      amount || 0
-    ).toFixed(2)}`;
-  }
-
-  function getFulfilmentStatus(
-    order: Order
-  ): FulfilmentStatus {
-    return (
-      order.fulfilment_status ||
-      "processing"
-    );
-  }
-
-  function getFulfilmentLabel(
-    status: FulfilmentStatus
-  ) {
-    switch (status) {
-      case "processing":
-        return "PROCESSING";
-
-      case "packed":
-        return "PACKED";
-
-      case "shipped":
-        return "SHIPPED";
-
-      case "completed":
-        return "COMPLETED";
-
-      default:
-        return "PROCESSING";
-    }
-  }
-
-  async function updateFulfilmentStatus(
-    orderId: string,
-    newStatus: FulfilmentStatus
-  ) {
-    setUpdatingOrder(orderId);
     setError("");
 
     try {
       const response = await fetch(
-        "/api/update-order-status",
+        `/api/order-by-session?session_id=${encodeURIComponent(
+          sessionId
+        )}`,
         {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            orderId,
-            status: newStatus,
-          }),
+          cache: "no-store",
         }
       );
 
@@ -222,65 +116,48 @@ export default function OrdersPage() {
       if (!response.ok) {
         throw new Error(
           data.error ||
-            "Unable to update the fulfilment status."
+            "Unable to load your order."
         );
       }
 
-      setOrders(
-        (currentOrders) =>
-          currentOrders.map(
-            (order) =>
-              order.id === orderId
-                ? {
-                    ...order,
-                    fulfilment_status:
-                      newStatus,
-                  }
-                : order
-          )
-      );
-    } catch (error) {
+      setOrder(data.order);
+      setItems(data.items || []);
+    } catch (err) {
       console.error(
-        "Error updating fulfilment status:",
-        error
+        "Customer order lookup error:",
+        err
       );
 
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to update the fulfilment status."
+        err instanceof Error
+          ? err.message
+          : "Unable to load your order."
       );
     } finally {
-      setUpdatingOrder(null);
+      setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadOrder();
+  }, [sessionId]);
 
   if (loading) {
     return (
       <main style={styles.page}>
         <div style={styles.container}>
-          <div style={styles.header}>
-            <div>
-              <div style={styles.brand}>
-                SPARRA&apos;S FUNKO SHOP
-              </div>
-
-              <h1 style={styles.title}>
-                Orders
-              </h1>
-
-              <p style={styles.subtitle}>
-                Loading orders...
-              </p>
-            </div>
-          </div>
-
           <div style={styles.messageCard}>
-            <div style={styles.spinner} />
+            <div style={styles.loadingIcon}>
+              📦
+            </div>
+
+            <h1 style={styles.title}>
+              Loading your order...
+            </h1>
 
             <p style={styles.messageText}>
-              Loading orders from
-              Supabase...
+              Please wait while we retrieve
+              your order details.
             </p>
           </div>
         </div>
@@ -288,55 +165,57 @@ export default function OrdersPage() {
     );
   }
 
-  if (
-    error &&
-    orders.length === 0
-  ) {
+  if (error || !order) {
     return (
       <main style={styles.page}>
         <div style={styles.container}>
-          <div style={styles.header}>
-            <div>
-              <div style={styles.brand}>
-                SPARRA&apos;S FUNKO SHOP
-              </div>
-
-              <h1 style={styles.title}>
-                Orders
-              </h1>
-
-              <p style={styles.subtitle}>
-                Something went wrong
-              </p>
-            </div>
-          </div>
-
           <div style={styles.errorCard}>
             <div style={styles.errorIcon}>
-              !
+              ⚠️
             </div>
 
             <div>
-              <h2 style={styles.errorTitle}>
-                Unable to load orders
-              </h2>
+              <h1 style={styles.errorTitle}>
+                Order not found
+              </h1>
 
               <p style={styles.errorText}>
-                {error}
+                {error ||
+                  "We couldn't find that order."}
               </p>
-
-              <button
-                onClick={loadOrders}
-                style={styles.primaryButton}
-              >
-                Try Again
-              </button>
             </div>
           </div>
         </div>
       </main>
     );
   }
+
+  const fulfilmentStatus =
+    order.fulfilment_status ||
+    "processing";
+
+  const currentStatus =
+    statusInfo[fulfilmentStatus];
+
+  const createdDate =
+    new Date(
+      order.created_at
+    ).toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+
+  const statuses: FulfilmentStatus[] = [
+    "processing",
+    "packed",
+    "shipped",
+    "completed",
+  ];
+
+  const currentIndex =
+    statuses.indexOf(
+      fulfilmentStatus
+    );
 
   return (
     <main style={styles.page}>
@@ -344,557 +223,319 @@ export default function OrdersPage() {
         <div style={styles.header}>
           <div>
             <div style={styles.brand}>
-              SPARRA&apos;S FUNKO SHOP
+              SPARRA'S FUNKO POP SHOP
             </div>
 
             <h1 style={styles.title}>
-              Orders
+              My Order
             </h1>
 
             <p style={styles.subtitle}>
-              {orders.length}{" "}
-              {orders.length === 1
-                ? "order"
-                : "orders"}{" "}
-              received
+              Track the progress of your order.
             </p>
           </div>
 
           <button
-            onClick={loadOrders}
+            onClick={loadOrder}
             style={styles.refreshButton}
           >
-            ↻ Refresh
+            🔄 Refresh
           </button>
         </div>
 
-        {error && (
-          <div style={styles.warningCard}>
-            <span
-              style={styles.warningIcon}
-            >
-              !
-            </span>
+        <section style={styles.orderCard}>
+          <div style={styles.orderTop}>
+            <div>
+              <div style={styles.orderNumber}>
+                ORDER
+              </div>
 
-            <span>{error}</span>
-          </div>
-        )}
+              <div
+                style={styles.orderId}
+              >
+                #{order.id}
+              </div>
 
-        <div style={styles.statsRow}>
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>
-              TOTAL ORDERS
+              <div style={styles.orderDate}>
+                {createdDate}
+              </div>
             </div>
 
-            <div style={styles.statValue}>
-              {orders.length}
-            </div>
-          </div>
-
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>
-              PAID ORDERS
-            </div>
-
-            <div style={styles.statValue}>
-              {
-                orders.filter(
-                  (order) =>
-                    order.payment_status ===
-                      "paid" ||
-                    order.status ===
-                      "paid"
-                ).length
+            <div
+              style={
+                order.payment_status ===
+                "paid"
+                  ? styles.paidBadge
+                  : styles.unpaidBadge
               }
+            >
+              {order.payment_status ===
+              "paid"
+                ? "✓ PAID"
+                : "PAYMENT PENDING"}
             </div>
           </div>
 
-          <div style={styles.statCard}>
-            <div style={styles.statLabel}>
-              TOTAL SALES
+          <div style={styles.customerSection}>
+            <h2
+              style={styles.sectionTitle}
+            >
+              Customer
+            </h2>
+
+            <p style={styles.customerName}>
+              {order.customer_name ||
+                "Customer"}
+            </p>
+
+            <p
+              style={styles.customerEmail}
+            >
+              {order.customer_email || ""}
+            </p>
+          </div>
+
+          <div style={styles.addressSection}>
+            <div style={styles.addressTitle}>
+              DELIVERY ADDRESS
             </div>
 
-            <div style={styles.statValue}>
-              {formatMoney(
-                orders.reduce(
-                  (
-                    total,
-                    order
-                  ) =>
-                    total +
-                    Number(
-                      order.total || 0
-                    ),
-                  0
-                )
+            <div style={styles.addressText}>
+              {order.address || ""}
+              <br />
+              {order.town || ""}
+              <br />
+              {order.postcode || ""}
+            </div>
+          </div>
+
+          <div style={styles.fulfilmentSection}>
+            <div
+              style={styles.fulfilmentHeader}
+            >
+              <div>
+                <div
+                  style={
+                    styles.fulfilmentLabel
+                  }
+                >
+                  ORDER STATUS
+                </div>
+
+                <div
+                  style={
+                    styles.fulfilmentDescription
+                  }
+                >
+                  Your order is currently{" "}
+                  <strong>
+                    {currentStatus.label}
+                  </strong>
+                  .
+                </div>
+              </div>
+
+              <div
+                style={{
+                  ...styles.statusBadge,
+                  background:
+                    currentStatus.background,
+                  color:
+                    currentStatus.color,
+                }}
+              >
+                {currentStatus.icon}{" "}
+                {currentStatus.label}
+              </div>
+            </div>
+
+            <div style={styles.progress}>
+              {statuses.map(
+                (status, index) => {
+                  const info =
+                    statusInfo[status];
+
+                  const active =
+                    index <= currentIndex;
+
+                  return (
+                    <div
+                      key={status}
+                      style={
+                        styles.progressItem
+                      }
+                    >
+                      <div
+                        style={{
+                          ...styles.progressCircle,
+                          background: active
+                            ? info.color
+                            : "#e2e8f0",
+                          color: active
+                            ? "#ffffff"
+                            : "#94a3b8",
+                        }}
+                      >
+                        {active
+                          ? "✓"
+                          : index + 1}
+                      </div>
+
+                      <div
+                        style={{
+                          ...styles.progressLabel,
+                          color: active
+                            ? info.color
+                            : "#94a3b8",
+                        }}
+                      >
+                        {info.label}
+                      </div>
+
+                      {index < 3 && (
+                        <div
+                          style={{
+                            ...styles.progressLine,
+                            background:
+                              index <
+                              currentIndex
+                                ? "#7c3aed"
+                                : "#e2e8f0",
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                }
               )}
             </div>
           </div>
-        </div>
 
-        {orders.length === 0 ? (
-          <div style={styles.emptyCard}>
-            <div style={styles.emptyIcon}>
-              🛒
+          <div style={styles.itemsSection}>
+            <div style={styles.itemsHeader}>
+              <h2
+                style={styles.itemsTitle}
+              >
+                Items
+              </h2>
+
+              <span
+                style={styles.itemCount}
+              >
+                {items.length}{" "}
+                {items.length === 1
+                  ? "item"
+                  : "items"}
+              </span>
             </div>
 
-            <h2 style={styles.emptyTitle}>
-              No orders yet
-            </h2>
-
-            <p style={styles.emptyText}>
-              Orders will appear here
-              after a successful
-              payment.
-            </p>
-          </div>
-        ) : (
-          <div style={styles.ordersList}>
-            {orders.map(
-              (order, index) => {
-                const items =
-                  getItemsForOrder(
-                    order.id
-                  );
-
-                const isPaid =
-                  order.payment_status ===
-                    "paid" ||
-                  order.status ===
-                    "paid";
-
-                const fulfilmentStatus =
-                  getFulfilmentStatus(
-                    order
-                  );
-
-                return (
+            {items.length === 0 ? (
+              <div style={styles.noItems}>
+                No item details found.
+              </div>
+            ) : (
+              <div style={styles.itemsList}>
+                {items.map((item) => (
                   <div
-                    key={order.id}
-                    style={
-                      styles.orderCard
-                    }
+                    key={item.id}
+                    style={styles.itemRow}
                   >
                     <div
-                      style={
-                        styles.orderTop
-                      }
+                      style={styles.itemInfo}
                     >
                       <div
                         style={
-                          styles.orderNumber
+                          styles.productIcon
                         }
                       >
-                        ORDER #
-                        {orders.length -
-                          index}
+                        ★
                       </div>
 
-                      <div
-                        style={
-                          isPaid
-                            ? styles.paidBadge
-                            : styles.unpaidBadge
-                        }
-                      >
-                        {isPaid
-                          ? "✓ PAID"
-                          : (
-                              order.payment_status ||
-                              order.status ||
-                              "PENDING"
-                            ).toUpperCase()}
-                      </div>
-                    </div>
-
-                    <div
-                      style={
-                        styles.orderDetails
-                      }
-                    >
-                      <div
-                        style={
-                          styles.customerSection
-                        }
-                      >
-                        <h2
-                          style={
-                            styles.customerName
-                          }
-                        >
-                          {order.customer_name ||
-                            "Customer"}
-                        </h2>
-
+                      <div>
                         <p
                           style={
-                            styles.customerEmail
+                            styles.productName
                           }
                         >
-                          {order.customer_email ||
-                            "No email supplied"}
+                          {item.product_name ||
+                            "Funko Pop"}
                         </p>
 
                         <p
                           style={
-                            styles.orderDate
+                            styles.quantity
                           }
                         >
-                          {formatDate(
-                            order.created_at
-                          )}
+                          Quantity:{" "}
+                          {item.quantity || 1}
                         </p>
                       </div>
-
-                      <div
-                        style={
-                          styles.totalSection
-                        }
-                      >
-                        <div
-                          style={
-                            styles.totalLabel
-                          }
-                        >
-                          ORDER TOTAL
-                        </div>
-
-                        <div
-                          style={
-                            styles.totalAmount
-                          }
-                        >
-                          {formatMoney(
-                            order.total
-                          )}
-                        </div>
-                      </div>
                     </div>
 
                     <div
-                      style={
-                        styles.addressSection
-                      }
+                      style={styles.itemPrice}
                     >
-                      <div
-                        style={
-                          styles.addressTitle
-                        }
-                      >
-                        DELIVERY ADDRESS
-                      </div>
-
-                      <div
-                        style={
-                          styles.addressText
-                        }
-                      >
-                        {order.address ||
-                          "No address supplied"}
-                        <br />
-
-                        {order.town ||
-                          "No town supplied"}
-                        <br />
-
-                        {order.postcode ||
-                          "No postcode supplied"}
-                      </div>
-                    </div>
-
-                    <div
-                      style={
-                        styles.fulfilmentSection
-                      }
-                    >
-                      <div
-                        style={
-                          styles.fulfilmentHeader
-                      }
-                      >
-                        <div>
-                          <div
-                            style={
-                              styles.fulfilmentLabel
-                            }
-                          >
-                            FULFILMENT STATUS
-                          </div>
-
-                          <div
-                            style={
-                              styles.fulfilmentDescription
-                            }
-                          >
-                            Click a button to
-                            update the order
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            ...styles.statusBadge,
-                            ...getStatusBadgeStyle(
-                              fulfilmentStatus
-                            ),
-                          }}
-                        >
-                          {updatingOrder ===
-                          order.id
-                            ? "SAVING..."
-                            : getFulfilmentLabel(
-                                fulfilmentStatus
-                              )}
-                        </div>
-                      </div>
-
-                      <div
-                        style={
-                          styles.statusButtons
-                        }
-                      >
-                        {(
-                          [
-                            "processing",
-                            "packed",
-                            "shipped",
-                            "completed",
-                          ] as FulfilmentStatus[]
-                        ).map(
-                          (status) => {
-                            const active =
-                              fulfilmentStatus ===
-                              status;
-
-                            const saving =
-                              updatingOrder ===
-                              order.id;
-
-                            return (
-                              <button
-                                key={
-                                  status
-                                }
-                                disabled={
-                                  saving ||
-                                  active
-                                }
-                                onClick={() =>
-                                  updateFulfilmentStatus(
-                                    order.id,
-                                    status
-                                  )
-                                }
-                                style={{
-                                  ...styles.statusButton,
-                                  ...getStatusButtonStyle(
-                                    status
-                                  ),
-                                  ...(active
-                                    ? styles.statusButtonActive
-                                    : {}),
-                                  ...(saving
-                                    ? styles.statusButtonDisabled
-                                    : {}),
-                                }}
-                              >
-                                {active
-                                  ? "✓ "
-                                  : ""}
-                                {getFulfilmentLabel(
-                                  status
-                                )}
-                              </button>
-                            );
-                          }
-                        )}
-                      </div>
-                    </div>
-
-                    <div
-                      style={
-                        styles.itemsSection
-                      }
-                    >
-                      <div
-                        style={
-                          styles.itemsHeader
-                        }
-                      >
-                        <h3
-                          style={
-                            styles.itemsTitle
-                          }
-                        >
-                          Items
-                        </h3>
-
-                        <span
-                          style={
-                            styles.itemCount
-                          }
-                        >
-                          {items.length}{" "}
-                          {items.length ===
-                          1
-                            ? "item"
-                            : "items"}
-                        </span>
-                      </div>
-
-                      {items.length ===
-                      0 ? (
-                        <div
-                          style={
-                            styles.noItems
-                          }
-                        >
-                          No item details
-                          found.
-                        </div>
-                      ) : (
-                        <div
-                          style={
-                            styles.itemsList
-                          }
-                        >
-                          {items.map(
-                            (item) => (
-                              <div
-                                key={
-                                  item.id
-                                }
-                                style={
-                                  styles.itemRow
-                                }
-                              >
-                                <div
-                                  style={
-                                    styles.itemInfo
-                                  }
-                                >
-                                  <div
-                                    style={
-                                      styles.productIcon
-                                    }
-                                  >
-                                    ★
-                                  </div>
-
-                                  <div>
-                                    <p
-                                      style={
-                                        styles.productName
-                                      }
-                                    >
-                                      {item.product_name ||
-                                        "Funko Pop"}
-                                    </p>
-
-                                    <p
-                                      style={
-                                        styles.quantity
-                                      }
-                                    >
-                                      Quantity:{" "}
-                                      {item.quantity ||
-                                        1}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div
-                                  style={
-                                    styles.itemPrice
-                                  }
-                                >
-                                  {formatMoney(
-                                    item.price
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      )}
+                      £
+                      {(
+                        Number(
+                          item.price || 0
+                        ) *
+                        Number(
+                          item.quantity || 1
+                        )
+                      ).toFixed(2)}
                     </div>
                   </div>
-                );
-              }
+                ))}
+              </div>
             )}
+
+            <div style={styles.totalRow}>
+              <span>Total</span>
+
+              <strong>
+                £
+                {Number(
+                  order.total || 0
+                ).toFixed(2)}
+              </strong>
+            </div>
           </div>
-        )}
+        </section>
       </div>
     </main>
   );
 }
 
-function getStatusBadgeStyle(
-  status: FulfilmentStatus
-): React.CSSProperties {
-  switch (status) {
-    case "packed":
-      return {
-        background: "#fef3c7",
-        color: "#92400e",
-      };
+export default function OrdersPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={styles.page}>
+          <div style={styles.container}>
+            <div style={styles.messageCard}>
+              <div style={styles.loadingIcon}>
+                📦
+              </div>
 
-    case "shipped":
-      return {
-        background: "#dbeafe",
-        color: "#1d4ed8",
-      };
+              <h1 style={styles.title}>
+                Loading your order...
+              </h1>
 
-    case "completed":
-      return {
-        background: "#dcfce7",
-        color: "#15803d",
-      };
-
-    case "processing":
-    default:
-      return {
-        background: "#ede9fe",
-        color: "#6d28d9",
-      };
-  }
-}
-
-function getStatusButtonStyle(
-  status: FulfilmentStatus
-): React.CSSProperties {
-  switch (status) {
-    case "processing":
-      return {
-        border: "1px solid #8b5cf6",
-        background: "#f5f3ff",
-        color: "#6d28d9",
-      };
-
-    case "packed":
-      return {
-        border: "1px solid #f59e0b",
-        background: "#fffbeb",
-        color: "#92400e",
-      };
-
-    case "shipped":
-      return {
-        border: "1px solid #3b82f6",
-        background: "#eff6ff",
-        color: "#1d4ed8",
-      };
-
-    case "completed":
-      return {
-        border: "1px solid #22c55e",
-        background: "#f0fdf4",
-        color: "#15803d",
-      };
-
-    default:
-      return {};
-  }
+              <p
+                style={styles.messageText}
+              >
+                Please wait while we retrieve
+                your order details.
+              </p>
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <OrdersPageContent />
+    </Suspense>
+  );
 }
 
 const styles: {
@@ -939,6 +580,7 @@ const styles: {
     fontSize: "42px",
     lineHeight: 1.1,
     fontWeight: 800,
+    color: "#ffffff",
   },
 
   subtitle: {
@@ -960,69 +602,6 @@ const styles: {
     cursor: "pointer",
   },
 
-  warningCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    background: "#fff7ed",
-    color: "#9a3412",
-    borderRadius: "10px",
-    padding: "12px 16px",
-    marginBottom: "18px",
-    fontSize: "14px",
-    fontWeight: 600,
-  },
-
-  warningIcon: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent:
-      "center",
-    width: "24px",
-    height: "24px",
-    borderRadius: "50%",
-    background: "#fed7aa",
-    color: "#9a3412",
-    fontWeight: 800,
-  },
-
-  statsRow: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(3, minmax(0, 1fr))",
-    gap: "16px",
-    marginBottom: "24px",
-  },
-
-  statCard: {
-    background:
-      "rgba(255, 255, 255, 0.06)",
-    border:
-      "1px solid rgba(255, 255, 255, 0.09)",
-    borderRadius: "14px",
-    padding: "20px",
-  },
-
-  statLabel: {
-    color: "#8995b0",
-    fontSize: "11px",
-    fontWeight: 800,
-    letterSpacing: "1.2px",
-  },
-
-  statValue: {
-    marginTop: "8px",
-    fontSize: "28px",
-    fontWeight: 800,
-    color: "#ffffff",
-  },
-
-  ordersList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "18px",
-  },
-
   orderCard: {
     background: "#ffffff",
     color: "#111827",
@@ -1038,7 +617,8 @@ const styles: {
     justifyContent:
       "space-between",
     gap: "15px",
-    padding: "15px 22px",
+    padding:
+      "22px",
     background: "#f7f8fc",
     borderBottom:
       "1px solid #e5e7eb",
@@ -1051,35 +631,49 @@ const styles: {
     color: "#6b7280",
   },
 
+  orderId: {
+    marginTop: "5px",
+    fontSize: "18px",
+    fontWeight: 800,
+    wordBreak: "break-all",
+  },
+
+  orderDate: {
+    marginTop: "8px",
+    color: "#9ca3af",
+    fontSize: "13px",
+  },
+
   paidBadge: {
     borderRadius: "999px",
     background: "#dcfce7",
     color: "#15803d",
-    padding: "6px 11px",
+    padding: "7px 12px",
     fontSize: "11px",
     fontWeight: 800,
+    whiteSpace: "nowrap",
   },
 
   unpaidBadge: {
     borderRadius: "999px",
     background: "#fef3c7",
     color: "#92400e",
-    padding: "6px 11px",
+    padding: "7px 12px",
     fontSize: "11px",
     fontWeight: 800,
-  },
-
-  orderDetails: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    gap: "30px",
-    padding:
-      "24px 22px 16px",
+    whiteSpace: "nowrap",
   },
 
   customerSection: {
-    minWidth: 0,
+    padding:
+      "24px 22px 18px",
+  },
+
+  sectionTitle: {
+    margin:
+      "0 0 12px",
+    fontSize: "15px",
+    fontWeight: 800,
   },
 
   customerName: {
@@ -1089,37 +683,15 @@ const styles: {
   },
 
   customerEmail: {
-    margin: "5px 0 0",
+    margin:
+      "5px 0 0",
     color: "#6b7280",
     fontSize: "14px",
   },
 
-  orderDate: {
-    margin: "9px 0 0",
-    color: "#9ca3af",
-    fontSize: "13px",
-  },
-
-  totalSection: {
-    textAlign: "right",
-    flexShrink: 0,
-  },
-
-  totalLabel: {
-    color: "#9ca3af",
-    fontSize: "10px",
-    fontWeight: 800,
-    letterSpacing: "1px",
-  },
-
-  totalAmount: {
-    marginTop: "5px",
-    fontSize: "28px",
-    fontWeight: 800,
-  },
-
   addressSection: {
-    margin: "0 22px 22px",
+    margin:
+      "0 22px 22px",
     padding: "16px",
     background: "#f8fafc",
     border:
@@ -1143,8 +715,9 @@ const styles: {
   },
 
   fulfilmentSection: {
-    margin: "0 22px 22px",
-    padding: "16px",
+    margin:
+      "0 22px 22px",
+    padding: "18px",
     background: "#f8fafc",
     border:
       "1px solid #e5e7eb",
@@ -1157,7 +730,7 @@ const styles: {
     justifyContent:
       "space-between",
     gap: "15px",
-    marginBottom: "14px",
+    marginBottom: "24px",
   },
 
   fulfilmentLabel: {
@@ -1169,48 +742,61 @@ const styles: {
 
   fulfilmentDescription: {
     marginTop: "4px",
-    fontSize: "12px",
+    fontSize: "13px",
     color: "#9ca3af",
-  },
-
-  statusButtons: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(4, minmax(0, 1fr))",
-    gap: "9px",
-  },
-
-  statusButton: {
-    borderRadius: "9px",
-    padding: "11px 8px",
-    fontSize: "11px",
-    fontWeight: 800,
-    cursor: "pointer",
-    transition:
-      "all 0.15s ease",
-  },
-
-  statusButtonActive: {
-    boxShadow:
-      "inset 0 0 0 2px rgba(0,0,0,0.08)",
-    cursor: "default",
-  },
-
-  statusButtonDisabled: {
-    opacity: 0.55,
-    cursor: "wait",
   },
 
   statusBadge: {
     borderRadius: "999px",
-    padding: "7px 11px",
-    fontSize: "10px",
+    padding: "8px 12px",
+    fontSize: "11px",
     fontWeight: 800,
     whiteSpace: "nowrap",
   },
 
+  progress: {
+    display: "flex",
+    alignItems: "flex-start",
+    width: "100%",
+  },
+
+  progressItem: {
+    flex: 1,
+    position: "relative",
+    textAlign: "center",
+  },
+
+  progressCircle: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin:
+      "0 auto 8px",
+    fontWeight: 900,
+    position: "relative",
+    zIndex: 2,
+  },
+
+  progressLabel: {
+    fontSize: "12px",
+    fontWeight: 800,
+  },
+
+  progressLine: {
+    position: "absolute",
+    height: "4px",
+    left: "50%",
+    right: "-50%",
+    top: "17px",
+    zIndex: 1,
+  },
+
   itemsSection: {
-    padding: "0 22px 22px",
+    padding:
+      "0 22px 22px",
   },
 
   itemsHeader: {
@@ -1252,7 +838,8 @@ const styles: {
     border:
       "1px solid #eef0f4",
     borderRadius: "10px",
-    padding: "12px 14px",
+    padding:
+      "12px 14px",
   },
 
   itemInfo: {
@@ -1268,8 +855,7 @@ const styles: {
     borderRadius: "9px",
     display: "flex",
     alignItems: "center",
-    justifyContent:
-      "center",
+    justifyContent: "center",
     flexShrink: 0,
     background:
       "linear-gradient(135deg, #6d28d9, #a855f7)",
@@ -1285,7 +871,8 @@ const styles: {
   },
 
   quantity: {
-    margin: "3px 0 0",
+    margin:
+      "3px 0 0",
     fontSize: "12px",
     color: "#9ca3af",
   },
@@ -1296,27 +883,35 @@ const styles: {
     whiteSpace: "nowrap",
   },
 
+  totalRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent:
+      "space-between",
+    marginTop: "18px",
+    paddingTop: "18px",
+    borderTop:
+      "2px solid #111827",
+    fontSize: "22px",
+    fontWeight: 800,
+  },
+
   messageCard: {
     background: "#ffffff",
     color: "#111827",
     borderRadius: "16px",
-    padding: "50px 30px",
+    padding:
+      "60px 30px",
     textAlign: "center",
   },
 
-  spinner: {
-    width: "34px",
-    height: "34px",
-    borderRadius: "50%",
-    border:
-      "4px solid #e5e7eb",
-    borderTopColor: "#7c3aed",
-    margin:
-      "0 auto 16px",
+  loadingIcon: {
+    fontSize: "45px",
+    marginBottom: "15px",
   },
 
   messageText: {
-    margin: 0,
+    margin: "8px 0 0",
     color: "#6b7280",
     fontSize: "15px",
   },
@@ -1337,12 +932,12 @@ const styles: {
     borderRadius: "50%",
     display: "flex",
     alignItems: "center",
-    justifyContent:
-      "center",
+    justifyContent: "center",
     background: "#fee2e2",
     color: "#dc2626",
     fontSize: "22px",
     fontWeight: 800,
+    flexShrink: 0,
   },
 
   errorTitle: {
@@ -1352,45 +947,10 @@ const styles: {
   },
 
   errorText: {
-    margin: "7px 0 18px",
+    margin:
+      "7px 0 0",
     color: "#6b7280",
     fontSize: "14px",
-  },
-
-  primaryButton: {
-    border: "none",
-    borderRadius: "9px",
-    background: "#111827",
-    color: "#ffffff",
-    padding: "10px 18px",
-    fontSize: "14px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-
-  emptyCard: {
-    background: "#ffffff",
-    color: "#111827",
-    borderRadius: "16px",
-    padding: "70px 30px",
-    textAlign: "center",
-  },
-
-  emptyIcon: {
-    fontSize: "45px",
-    marginBottom: "15px",
-  },
-
-  emptyTitle: {
-    margin: 0,
-    fontSize: "24px",
-    fontWeight: 800,
-  },
-
-  emptyText: {
-    margin: "8px 0 0",
-    color: "#6b7280",
-    fontSize: "15px",
   },
 
   noItems: {
