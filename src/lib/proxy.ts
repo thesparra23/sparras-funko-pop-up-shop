@@ -43,16 +43,26 @@ export async function updateSession(
     );
 
   const {
-    data: { user },
+    data: claimsData,
   } =
-    await supabase.auth.getUser();
+    await supabase.auth.getClaims();
+
+  console.log(
+    "ADMIN AUTH CHECK:",
+    claimsData?.claims
+      ? "LOGGED IN"
+      : "NOT LOGGED IN"
+  );
 
   const isAdminRoute =
     request.nextUrl.pathname.startsWith(
       "/admin"
     );
 
-  if (isAdminRoute && !user) {
+  if (
+    isAdminRoute &&
+    !claimsData?.claims
+  ) {
     const loginUrl =
       request.nextUrl.clone();
 
