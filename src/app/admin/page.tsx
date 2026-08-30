@@ -1,29 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { useEffect, useState } from "react";
+import { createClient } from "../../lib/supabase/client";
 
-const categories = [
-  "Marvel",
-  "DC",
-  "Star Wars",
-  "Anime",
-  "Movies",
-  "Television",
-  "Games",
-  "Disney",
-  "Icons",
-  "Sports",
-  "Rocks",
-  "Ad Icons",
-  "Animation",
-];
+type Category = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+const supabase = createClient();
 
 export default function AdminPage() {
   const [name, setName] = useState("");
   const [images, setImages] = useState<string[]>(Array(6).fill(""));
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("1");
+  const [productNumber, setProductNumber] = useState("");
   const [category, setCategory] = useState("Marvel");
 
   const [badge, setBadge] = useState("");
@@ -40,6 +33,296 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [newCategory, setNewCategory] = useState("");
+  const [categoryMessage, setCategoryMessage] = useState("");
+  const [categorySaving, setCategorySaving] = useState(false);
+
+  async function loadCategories() {
+    if (!supabase) {
+      setCategoryMessage("Supabase is not configured.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, slug")
+      .order("name");
+
+    if (error) {
+      console.error("Error loading categories:", error);
+      setCategoryMessage(`Error loading categories: ${error.message}`);
+      return;
+    }
+
+    const loadedCategories = data || [];
+
+    setCategories(loadedCategories);
+
+    if (
+      loadedCategories.length > 0 &&
+      !loadedCategories.some(
+        (item) => item.name === category
+      )
+    ) {
+      setCategory(loadedCategories[0].name);
+    }
+  }
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  function createSlug(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/&/g, "and")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  async function addCategory() {
+    const trimmedName = newCategory.trim();
+
+    if (!supabase) {
+      setCategoryMessage("Supabase is not configured.");
+      return;
+    }
+
+    if (!trimmedName) {
+      setCategoryMessage("Please enter a category name.");
+      return;
+    }
+
+    const slug = createSlug(trimmedName);
+
+    if (!slug) {
+      setCategoryMessage("Please enter a valid category name.");
+      return;
+    }
+
+    if (
+      categories.some(
+        (item) =>
+          item.name.toLowerCase() ===
+          trimmedName.toLowerCase()
+      )
+    ) {
+      setCategoryMessage("That category already exists.");
+      return;
+    }
+
+    setCategorySaving(true);
+    setCategoryMessage("");
+
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({
+        name: trimmedName,
+        slug,
+      })
+      .select("id, name, slug")
+      .single();
+
+    if (error) {
+      console.error(error);
+      setCategoryMessage(`Error: ${error.message}`);
+      setCategorySaving(false);
+      return;
+    }
+
+    if (data) {
+      setCategories((current) =>
+        [...current, data].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      );
+
+      setCategory(data.name);
+    }
+
+    setNewCategory("");
+    setCategoryMessage("✅ Category added successfully!");
+    setCategorySaving(false);
+  }
+
+  async function renameCategory(categoryItem: Category) {
+    if (!supabase) {
+      setCategoryMessage("Supabase is not configured.");
+      return;
+    }
+
+    const newName = window.prompt(
+      "Enter the new category name:",
+      categoryItem.name
+    );
+
+    if (newName === null) return;
+
+    const trimmedName = newName.trim();
+
+    if (!trimmedName) {
+      setCategoryMessage("Category name cannot be empty.");
+      return;
+    }
+
+    if (
+      trimmedName.toLowerCase() !==
+        categoryItem.name.toLowerCase() &&
+      categories.some(
+        (item) =>
+          item.name.toLowerCase() ===
+          trimmedName.toLowerCase()
+      )
+    ) {
+      setCategoryMessage("That category already exists.");
+      return;
+    }
+
+    const newSlug = createSlug(trimmedName);
+
+    if (!newSlug) {
+      setCategoryMessage("Invalid category name.");
+      return;
+    }
+
+    setCategorySaving(true);
+    setCategoryMessage("");
+
+    const { error: categoryError } = await supabase
+      .from("categories")
+      .update({
+        name: trimmedName,
+        slug: newSlug,
+      })
+      .eq("id", categoryItem.id);
+
+    if (categoryError) {
+      console.error(categoryError);
+      setCategoryMessage(
+        `Error renaming category: ${categoryError.message}`
+      );
+      setCategorySaving(false);
+      return;
+    }
+
+    const { error: productError } = await supabase
+      .from("products")
+      .update({
+        category: trimmedName,
+      })
+      .eq("category", categoryItem.name);
+
+    if (productError) {
+      console.error(productError);
+      setCategoryMessage(
+        `Category renamed, but existing products could not be updated: ${productError.message}`
+      );
+      await loadCategories();
+      setCategorySaving(false);
+      return;
+    }
+
+    setCategories((current) =>
+      current
+        .map((item) =>
+          item.id === categoryItem.id
+            ? {
+                ...item,
+                name: trimmedName,
+                slug: newSlug,
+              }
+            : item
+        )
+        .sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+    );
+
+    if (category === categoryItem.name) {
+      setCategory(trimmedName);
+    }
+
+    setCategoryMessage("✅ Category renamed successfully!");
+    setCategorySaving(false);
+  }
+
+  async function deleteCategory(categoryItem: Category) {
+    if (!supabase) {
+      setCategoryMessage("Supabase is not configured.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete the category "${categoryItem.name}"?\n\nThis will only delete the category. Products currently using it will not be deleted.`
+    );
+
+    if (!confirmed) return;
+
+    setCategorySaving(true);
+    setCategoryMessage("");
+
+    const { count, error: productCheckError } =
+      await supabase
+        .from("products")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("category", categoryItem.name);
+
+    if (productCheckError) {
+      console.error(productCheckError);
+      setCategoryMessage(
+        `Error checking products: ${productCheckError.message}`
+      );
+      setCategorySaving(false);
+      return;
+    }
+
+    if ((count || 0) > 0) {
+      setCategoryMessage(
+        `Cannot delete "${categoryItem.name}" because ${count} product${
+          count === 1 ? "" : "s"
+        } use this category.`
+      );
+      setCategorySaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("categories")
+      .delete()
+      .eq("id", categoryItem.id);
+
+    if (error) {
+      console.error(error);
+      setCategoryMessage(
+        `Error deleting category: ${error.message}`
+      );
+      setCategorySaving(false);
+      return;
+    }
+
+    const remaining = categories.filter(
+      (item) => item.id !== categoryItem.id
+    );
+
+    setCategories(remaining);
+
+    if (category === categoryItem.name) {
+      setCategory(
+        remaining.length > 0
+          ? remaining[0].name
+          : ""
+      );
+    }
+
+    setCategoryMessage("✅ Category deleted successfully!");
+    setCategorySaving(false);
+  }
 
   async function handleImageUpload(
     event: React.ChangeEvent<HTMLInputElement>,
@@ -101,7 +384,9 @@ export default function AdminPage() {
     event.target.value = "";
   }
 
-  async function addProduct(event: React.FormEvent) {
+  async function addProduct(
+    event: React.FormEvent
+  ) {
     event.preventDefault();
 
     setSaving(true);
@@ -121,6 +406,12 @@ export default function AdminPage() {
       return;
     }
 
+    if (!category) {
+      setMessage("Please select a category.");
+      setSaving(false);
+      return;
+    }
+
     const { error } = await supabase
       .from("products")
       .insert({
@@ -131,6 +422,7 @@ export default function AdminPage() {
         image_4: images[3] || null,
         image_5: images[4] || null,
         image_6: images[5] || null,
+        product_number: productNumber === "" ? null : Number(productNumber),
         price: Number(price),
         stock: Number(stock),
         category,
@@ -155,7 +447,11 @@ export default function AdminPage() {
     setImages(Array(6).fill(""));
     setPrice("");
     setStock("1");
-    setCategory("Marvel");
+    setCategory(
+      categories.length > 0
+        ? categories[0].name
+        : ""
+    );
     setBadge("");
     setDescription("");
 
@@ -192,7 +488,7 @@ export default function AdminPage() {
             marginBottom: "6px",
           }}
         >
-          ➕ Quick Add Funko
+          ➕ Add Product
         </h1>
 
         <p
@@ -201,8 +497,175 @@ export default function AdminPage() {
             marginBottom: "20px",
           }}
         >
-          Add a Pop quickly from your phone.
+          Add a product quickly from your phone.
         </p>
+
+        {/* CATEGORY MANAGER */}
+
+        <section
+          style={{
+            background: "#111827",
+            border: "1px solid #334155",
+            borderRadius: "18px",
+            padding: "16px",
+            marginBottom: "18px",
+          }}
+        >
+          <h2
+            style={{
+              margin: "0 0 8px",
+              fontSize: "22px",
+            }}
+          >
+            📂 Categories
+          </h2>
+
+          <p
+            style={{
+              color: "#94a3b8",
+              margin: "0 0 14px",
+            }}
+          >
+            Add, rename or remove product categories.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "1fr auto",
+              gap: "10px",
+            }}
+          >
+            <input
+              value={newCategory}
+              onChange={(event) =>
+                setNewCategory(event.target.value)
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addCategory();
+                }
+              }}
+              placeholder="New category e.g. Clothing"
+              style={inputStyle}
+            />
+
+            <button
+              type="button"
+              onClick={addCategory}
+              disabled={categorySaving}
+              style={{
+                border: "none",
+                borderRadius: "10px",
+                padding: "0 18px",
+                background: categorySaving
+                  ? "#64748b"
+                  : "#facc15",
+                color: "#111827",
+                fontWeight: "800",
+                cursor: categorySaving
+                  ? "not-allowed"
+                  : "pointer",
+              }}
+            >
+              ➕ Add
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gap: "8px",
+              marginTop: "14px",
+            }}
+          >
+            {categories.map((categoryItem) => (
+              <div
+                key={categoryItem.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "10px",
+                  padding: "10px 12px",
+                  background: "#1e293b",
+                  border: "1px solid #334155",
+                  borderRadius: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: "700",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {categoryItem.name}
+                </span>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "7px",
+                    flexShrink: 0,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      renameCategory(categoryItem)
+                    }
+                    disabled={categorySaving}
+                    style={smallButtonStyle}
+                  >
+                    ✏️
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      deleteCategory(categoryItem)
+                    }
+                    disabled={categorySaving}
+                    style={{
+                      ...smallButtonStyle,
+                      background: "#7f1d1d",
+                    }}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {categories.length === 0 && (
+              <p
+                style={{
+                  color: "#94a3b8",
+                  margin: "8px 0 0",
+                }}
+              >
+                No categories found.
+              </p>
+            )}
+          </div>
+
+          {categoryMessage && (
+            <div
+              style={{
+                marginTop: "12px",
+                padding: "12px",
+                borderRadius: "10px",
+                background: "#0f172a",
+                color: "#e2e8f0",
+                fontSize: "14px",
+              }}
+            >
+              {categoryMessage}
+            </div>
+          )}
+        </section>
 
         <form
           suppressHydrationWarning
@@ -313,9 +776,28 @@ export default function AdminPage() {
 
             <input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) =>
+                setName(e.target.value)
+              }
               required
               placeholder="e.g. Rey 434"
+              style={inputStyle}
+            />
+          </label>
+
+          {/* FUNKO PRODUCT NUMBER */}
+
+          <label>
+            <strong>Funko Product Number</strong>
+
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={productNumber}
+              onChange={(e) => setProductNumber(e.target.value)}
+              placeholder="e.g. 123"
+              inputMode="numeric"
               style={inputStyle}
             />
           </label>
@@ -330,7 +812,9 @@ export default function AdminPage() {
               step="0.01"
               min="0"
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              onChange={(e) =>
+                setPrice(e.target.value)
+              }
               required
               placeholder="e.g. 15.00"
               inputMode="decimal"
@@ -345,15 +829,17 @@ export default function AdminPage() {
 
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) =>
+                setCategory(e.target.value)
+              }
               style={inputStyle}
             >
-              {categories.map((categoryName) => (
+              {categories.map((categoryItem) => (
                 <option
-                  key={categoryName}
-                  value={categoryName}
+                  key={categoryItem.id}
+                  value={categoryItem.name}
                 >
-                  {categoryName}
+                  {categoryItem.name}
                 </option>
               ))}
             </select>
@@ -609,7 +1095,8 @@ export default function AdminPage() {
               uploading ||
               !images[0] ||
               !name ||
-              !price
+              !price ||
+              !category
             }
             style={{
               padding: "20px 16px",
@@ -620,7 +1107,8 @@ export default function AdminPage() {
                 uploading ||
                 !images[0] ||
                 !name ||
-                !price
+                !price ||
+                !category
                   ? "#64748b"
                   : "#facc15",
               color: "#111827",
@@ -631,7 +1119,8 @@ export default function AdminPage() {
                 uploading ||
                 !images[0] ||
                 !name ||
-                !price
+                !price ||
+                !category
                   ? "not-allowed"
                   : "pointer",
             }}
@@ -695,3 +1184,14 @@ const secondaryButtonStyle = {
   fontWeight: "700",
   cursor: "pointer",
 };
+
+const smallButtonStyle = {
+  border: "none",
+  borderRadius: "8px",
+  padding: "8px 10px",
+  background: "#334155",
+  color: "#ffffff",
+  fontSize: "15px",
+  cursor: "pointer",
+};
+

@@ -1,0 +1,5 @@
+[33m7988b7f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Protect admin pages with Supabase auth
+[33mdec7ae7[m Fix Supabase server client
+[33mb6af743[m Protect admin with Supabase login
+[33mebd922d[m Add Supabase admin authentication
+[33mb9cf126[m Working shop checkout and order tracking

@@ -262,6 +262,7 @@ function SuccessContent() {
       <main
         style={{
           minHeight: "100vh",
+        color: "#111827",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -307,6 +308,7 @@ function SuccessContent() {
       <main
         style={{
           minHeight: "100vh",
+        color: "#111827",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -373,6 +375,7 @@ function SuccessContent() {
     <main
       style={{
         minHeight: "100vh",
+        color: "#111827",
         background: "#f8fafc",
         padding:
           "40px 20px 60px",
@@ -707,6 +710,7 @@ export default function SuccessPage() {
         <main
           style={{
             minHeight: "100vh",
+        color: "#111827",
             display: "flex",
             alignItems: "center",
             justifyContent:

@@ -800,3 +800,14 @@ footer p + p {
     width: 100%;
   }
 }
+/* CHECKOUT SUCCESS PAGE TEXT FIX */
+main[style*="f8fafc"] {
+  color: #111827;
+}
+
+main[style*="f8fafc"] h1,
+main[style*="f8fafc"] h2,
+main[style*="f8fafc"] strong,
+main[style*="f8fafc"] div {
+  color: inherit;
+}
