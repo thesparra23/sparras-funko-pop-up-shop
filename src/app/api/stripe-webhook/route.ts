@@ -3,9 +3,13 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(
+  process.env.STRIPE_SECRET_KEY!
+);
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+const resend = new Resend(
+  process.env.RESEND_API_KEY!
+);
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,7 +19,8 @@ const supabase = createClient(
 export async function POST(request: Request) {
   const body = await request.text();
 
-  const signature = request.headers.get("stripe-signature");
+  const signature =
+    request.headers.get("stripe-signature");
 
   if (!signature) {
     return NextResponse.json(
@@ -33,7 +38,10 @@ export async function POST(request: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (error) {
-    console.error("Webhook signature error:", error);
+    console.error(
+      "Webhook signature error:",
+      error
+    );
 
     return NextResponse.json(
       { error: "Invalid webhook signature" },
@@ -42,24 +50,36 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
+    if (
+      event.type ===
+      "checkout.session.completed"
+    ) {
+      const session =
+        event.data.object as Stripe.Checkout.Session;
 
       console.log(
         "Checkout completed:",
         session.id
       );
 
+      const customerName =
+        session.customer_details?.name ||
+        "Customer";
+
       const customerEmail =
         session.customer_details?.email ||
         session.customer_email ||
-        null;
+        "";
 
-      const existingOrder = await supabase
-        .from("orders")
-        .select("id")
-        .eq("stripe_session_id", session.id)
-        .maybeSingle();
+      const existingOrder =
+        await supabase
+          .from("orders")
+          .select("id")
+          .eq(
+            "stripe_session_id",
+            session.id
+          )
+          .maybeSingle();
 
       if (existingOrder.data) {
         console.log(
@@ -67,22 +87,41 @@ export async function POST(request: Request) {
           session.id
         );
 
-        return NextResponse.json({ received: true });
+        return NextResponse.json({
+          received: true,
+        });
       }
 
-      const { data: order, error: orderError } =
-        await supabase
-          .from("orders")
-          .insert({
-            stripe_session_id: session.id,
-            customer_email: customerEmail,
-            status: "paid",
-            total: session.amount_total
-              ? session.amount_total / 100
-              : 0,
-          })
-          .select()
-          .single();
+      const {
+        data: order,
+        error: orderError,
+      } = await supabase
+        .from("orders")
+        .insert({
+          stripe_session_id:
+            session.id,
+
+          customer_name:
+            customerName,
+
+          customer_email:
+            customerEmail,
+
+          status:
+            "paid",
+
+          payment_status:
+            "paid",
+
+          fulfilment_status:
+            "processing",
+
+          total:
+            (session.amount_total || 0) /
+            100,
+        })
+        .select()
+        .single();
 
       if (orderError) {
         console.error(
@@ -95,28 +134,32 @@ export async function POST(request: Request) {
 
       const lineItems =
         await stripe.checkout.sessions.listLineItems(
-          session.id,
-          {
-            expand: ["data.price.product"],
-          }
+          session.id
         );
 
-      const orderItems = lineItems.data.map(
-        (item) => ({
-          order_id: order.id,
+      const orderItems =
+        lineItems.data.map((item) => ({
+          order_id:
+            order.id,
+
           product_name:
-            item.description || "Product",
-          quantity: item.quantity || 1,
+            item.description ||
+            "Funko Pop",
+
+          quantity:
+            item.quantity || 1,
+
           price:
-            item.amount_total / 100,
-        })
-      );
+            (item.amount_total || 0) /
+            100,
+        }));
 
       if (orderItems.length > 0) {
-        const { error: itemsError } =
-          await supabase
-            .from("order_items")
-            .insert(orderItems);
+        const {
+          error: itemsError,
+        } = await supabase
+          .from("order_items")
+          .insert(orderItems);
 
         if (itemsError) {
           console.error(
@@ -128,28 +171,38 @@ export async function POST(request: Request) {
         }
       }
 
-      if (customerEmail) {
-        await resend.emails.send({
-          from:
-            "Sparra's Collectables <orders@sparrascollectables.co.uk>",
-          to: customerEmail,
-          subject: "Thanks for your order!",
-          html: `
-            <h1>Thank you for your order!</h1>
-            <p>We've received your order and payment successfully.</p>
-            <p><strong>Order reference:</strong> ${session.id}</p>
-            <p>We'll be in touch when your order is on its way.</p>
-            <br />
-            <p>Thanks,</p>
-            <p><strong>Sparra's Collectables</strong></p>
-          `,
-        });
-      }
-
       console.log(
         "Order created successfully:",
         order.id
       );
+
+      if (customerEmail) {
+        try {
+          await resend.emails.send({
+            from:
+              "Sparra's Collectables <onboarding@resend.dev>",
+
+            to:
+              customerEmail,
+
+            subject:
+              "Thanks for your order!",
+
+            html: `
+              <h1>Thank you for your order!</h1>
+              <p>We've received your payment successfully.</p>
+              <p>Your order is now being processed.</p>
+              <p><strong>Order ID:</strong> ${order.id}</p>
+              <p>Thanks,<br/>Sparra's Collectables</p>
+            `,
+          });
+        } catch (emailError) {
+          console.error(
+            "Email error:",
+            emailError
+          );
+        }
+      }
     }
 
     return NextResponse.json({
@@ -162,7 +215,10 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json(
-      { error: "Webhook processing failed" },
+      {
+        error:
+          "Webhook processing failed",
+      },
       { status: 500 }
     );
   }
