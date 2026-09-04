@@ -150,17 +150,6 @@ export default function ProductCard({
             {stock && stock > 0 ? `Available: ${stock}` : "Out of stock"}
           </div>
 
-          <div style={{
-            marginTop: "6px",
-            fontSize: "13px",
-            fontWeight: "700",
-            color: stock && stock > 0 ? "#16a34a" : "#dc2626"
-          }}>
-            {stock && stock > 0
-              ? `Available: ${stock}`
-              : "Out of stock"}
-          </div>
-
           <div className="card-buttons">
             <button
               type="button"
