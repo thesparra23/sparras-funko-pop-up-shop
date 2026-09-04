@@ -941,3 +941,16 @@ main[style*="f8fafc"] div {
     height: 90px !important;
   }
 }
+
+@media (max-width: 600px) {
+  .header-logo-area {
+    min-height: 100px !important;
+    height: 100px !important;
+    padding: 0 !important;
+  }
+
+  .header-logo {
+    width: 160px !important;
+    height: 65px !important;
+  }
+}
