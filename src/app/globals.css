@@ -898,3 +898,34 @@ main[style*="f8fafc"] div {
     padding: 20px;
   }
 }
+@media (max-width: 600px) {
+  .header-logo-area {
+    min-height: 190px !important;
+    padding: 25px 15px 0 !important;
+  }
+
+  .header-logo {
+    width: 300px !important;
+    height: 130px !important;
+  }
+
+  .header-buttons {
+    right: 12px !important;
+    bottom: 12px !important;
+  }
+
+  .header-navigation {
+    padding: 0 8px 12px !important;
+    overflow-x: auto !important;
+  }
+
+  .header-nav {
+    justify-content: flex-start !important;
+    gap: 4px !important;
+  }
+
+  .header-nav a {
+    font-size: 13px !important;
+    padding: 7px 10px !important;
+  }
+}
