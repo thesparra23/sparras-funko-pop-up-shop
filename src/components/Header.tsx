@@ -35,19 +35,55 @@ export default function Header() {
         zIndex: 1000,
       }}
     >
-      <div className="header-logo-area">
-        <Link href="/" className="header-logo-link">
+      {/* TOP LOGO AREA */}
+
+      <div
+        style={{
+          maxWidth: "1400px",
+          margin: "0 auto",
+          minHeight: "385px",
+          padding: "105px 40px 0",
+          position: "relative",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-start",
+        }}
+      >
+        <Link
+          href="/"
+          style={{
+            display: "block",
+            textDecoration: "none",
+          }}
+        >
           <img
             src="/sparras-logo.png?v=3"
             alt="Sparra's Funko Pop Shop"
-            className="header-logo"
+            style={{
+              display: "block",
+              width: "620px",
+              height: "250px",
+              objectFit: "contain",
+            }}
           />
         </Link>
 
-        <div className="header-buttons">
+        {/* WISHLIST + BASKET */}
+
+        <div
+          style={{
+            position: "absolute",
+            right: "40px",
+            bottom: "35px",
+            display: "flex",
+            gap: "16px",
+          }}
+        >
           <button
             type="button"
-            onClick={() => setWishlistCount((count) => count + 1)}
+            onClick={() =>
+              setWishlistCount((count) => count + 1)
+            }
             style={yellowButton}
           >
             ❤️ Wishlist
@@ -72,10 +108,28 @@ export default function Header() {
         </div>
       </div>
 
-      <div className="header-navigation">
-        <nav className="header-nav">
+      {/* NAVIGATION */}
+
+      <div
+        style={{
+          maxWidth: "1400px",
+          margin: "0 auto",
+          padding: "0 40px 20px",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <nav
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <Link href="/" style={navStyle}>
-            <span style={{ color: "#ffd21c" }}>🏠</span>
+            <span style={{ color: "#ffd21c", fontSize: "20px" }}>
+              🏠
+            </span>
             Home
           </Link>
 
@@ -102,7 +156,9 @@ export default function Header() {
           <div style={{ position: "relative" }}>
             <button
               type="button"
-              onClick={() => setCategoriesOpen(!categoriesOpen)}
+              onClick={() =>
+                setCategoriesOpen(!categoriesOpen)
+              }
               style={{
                 ...navStyle,
                 background: "none",
@@ -121,12 +177,12 @@ export default function Header() {
                   left: "50%",
                   transform: "translateX(-50%)",
                   width: "220px",
-                  maxWidth: "90vw",
                   background: "#080b10",
                   border: "1px solid #333943",
                   borderRadius: "10px",
                   padding: "8px",
-                  boxShadow: "0 15px 35px rgba(0,0,0,0.7)",
+                  boxShadow:
+                    "0 15px 35px rgba(0,0,0,0.7)",
                   zIndex: 2000,
                 }}
               >
@@ -134,7 +190,9 @@ export default function Header() {
                   <Link
                     key={label}
                     href={href}
-                    onClick={() => setCategoriesOpen(false)}
+                    onClick={() =>
+                      setCategoriesOpen(false)
+                    }
                     style={dropdownStyle}
                   >
                     {label}
@@ -146,6 +204,7 @@ export default function Header() {
         </nav>
       </div>
 
+      {/* FIXED SHOP FILTER BAR */}
       <div
         style={{
           position: "fixed",
@@ -162,7 +221,6 @@ export default function Header() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-
             const form = e.currentTarget;
             const data = new FormData(form);
 
@@ -172,7 +230,6 @@ export default function Header() {
             const stock = data.get("stock") === "on";
 
             const params = new URLSearchParams();
-
             if (search) params.set("search", search);
             if (sort !== "newest") params.set("sort", sort);
             if (stock) params.set("stock", "1");
@@ -182,13 +239,32 @@ export default function Header() {
 
             window.location.href = `/?${query}#${hash}`;
           }}
-          className="shop-filter-form"
+          style={{
+            maxWidth: "1400px",
+            margin: "0 auto",
+            display: "flex",
+            gap: "10px",
+            alignItems: "center",
+            justifyContent: "center",
+            flexWrap: "wrap",
+          }}
         >
           <input
             name="search"
             type="search"
             placeholder="🔎 Search Funko Pops..."
-            className="shop-filter-input"
+            style={{
+              flex: "1 1 260px",
+              maxWidth: "420px",
+              minWidth: "220px",
+              padding: "11px 14px",
+              borderRadius: "10px",
+              border: "1px solid #334155",
+              background: "#111827",
+              color: "#ffffff",
+              fontSize: "15px",
+              outline: "none",
+            }}
           />
 
           <select
@@ -228,7 +304,17 @@ export default function Header() {
             <option value="movies">Movies</option>
           </select>
 
-          <label className="stock-checkbox">
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              color: "#ffffff",
+              fontSize: "14px",
+              whiteSpace: "nowrap",
+              cursor: "pointer",
+            }}
+          >
             <input name="stock" type="checkbox" />
             In stock only
           </label>
