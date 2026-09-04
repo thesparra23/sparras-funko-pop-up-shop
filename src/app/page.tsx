@@ -780,7 +780,7 @@ export default function Home() {
         <div
           className="shop-sticky-filters"
           style={{
-            position: "fixed",
+            position: "relative",
             top: "0",
             zIndex: 9999,
             left: 0,
