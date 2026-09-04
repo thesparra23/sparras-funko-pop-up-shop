@@ -208,6 +208,7 @@ export default function Header() {
       <div
         style={{
           position: "relative",
+          display: "none",
           top: 0,
           left: 0,
           right: 0,
