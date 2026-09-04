@@ -14,6 +14,7 @@ type ProductCardProps = {
   image_6?: string | null;
   price: string;
   badge?: string;
+  stock?: number;
 };
 
 export default function ProductCard({
@@ -26,7 +27,8 @@ export default function ProductCard({
   image_5,
   image_6,
   price,
-  badge,
+ badge,
+  stock,
 }: ProductCardProps) {
   const [wishlisted, setWishlisted] =
     useState(false);
@@ -142,6 +144,21 @@ export default function ProductCard({
 
           <div className="product-price">
             {price}
+          </div>
+
+          <div style={{ marginTop: "6px", fontSize: "13px", fontWeight: "700", color: stock && stock > 0 ? "#16a34a" : "#dc2626" }}>
+            {stock && stock > 0 ? `Available: ${stock}` : "Out of stock"}
+          </div>
+
+          <div style={{
+            marginTop: "6px",
+            fontSize: "13px",
+            fontWeight: "700",
+            color: stock && stock > 0 ? "#16a34a" : "#dc2626"
+          }}>
+            {stock && stock > 0
+              ? `Available: ${stock}`
+              : "Out of stock"}
           </div>
 
           <div className="card-buttons">

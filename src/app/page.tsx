@@ -434,6 +434,7 @@ export default function Home() {
         product.badge ||
         defaultBadge
       }
+      stock={product.stock}
     />
   );
 
