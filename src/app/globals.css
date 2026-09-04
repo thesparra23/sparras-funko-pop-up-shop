@@ -954,3 +954,11 @@ main[style*="f8fafc"] div {
     height: 65px !important;
   }
 }
+
+@media (max-width: 600px) {
+  header img {
+    width: 220px !important;
+    height: auto !important;
+    max-width: 70vw !important;
+  }
+}
