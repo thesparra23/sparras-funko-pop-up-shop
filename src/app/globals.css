@@ -954,21 +954,3 @@ main[style*="f8fafc"] div {
     height: 65px !important;
   }
 }
-
-@media (max-width: 600px) {
-  header > div:first-child {
-    min-height: 135px !important;
-    height: 135px !important;
-    padding: 10px 10px 0 !important;
-  }
-
-  header > div:first-child img {
-    width: 170px !important;
-    height: 75px !important;
-  }
-
-  header > div:first-child > div {
-    right: 10px !important;
-    bottom: 10px !important;
-  }
-}
