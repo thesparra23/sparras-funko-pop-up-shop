@@ -929,3 +929,15 @@ main[style*="f8fafc"] div {
     padding: 7px 10px !important;
   }
 }
+
+@media (max-width: 600px) {
+  .header-logo-area {
+    min-height: 135px !important;
+    padding: 5px 10px 0 !important;
+  }
+
+  .header-logo {
+    width: 220px !important;
+    height: 90px !important;
+  }
+}
