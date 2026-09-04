@@ -13,8 +13,7 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { items, customer } =
-      await request.json();
+    const { items, customer } = await request.json();
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -30,10 +29,6 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * Check stock before creating the Stripe
-     * checkout session.
-     */
     for (const item of items) {
       const quantity = Number(item.quantity);
 
@@ -54,16 +49,10 @@ export async function POST(request: Request) {
           .maybeSingle();
 
       if (stockError) {
-        console.error(
-          "STOCK CHECK ERROR:",
-          stockError
-        );
+        console.error("STOCK CHECK ERROR:", stockError);
 
         return NextResponse.json(
-          {
-            error:
-              "Unable to check product stock.",
-          },
+          { error: "Unable to check product stock." },
           { status: 500 }
         );
       }
@@ -71,15 +60,13 @@ export async function POST(request: Request) {
       if (!product) {
         return NextResponse.json(
           {
-            error:
-              `${item.name} is no longer available.`,
+            error: `${item.name} is no longer available.`,
           },
           { status: 400 }
         );
       }
 
-      const availableStock =
-        Number(product.stock || 0);
+      const availableStock = Number(product.stock || 0);
 
       if (availableStock < quantity) {
         return NextResponse.json(
@@ -99,92 +86,114 @@ export async function POST(request: Request) {
       request.headers.get("host");
 
     if (!host) {
-      throw new Error(
-        "Unable to determine website address."
-      );
+      throw new Error("Unable to determine website address.");
     }
 
     const protocol =
-      request.headers.get("x-forwarded-proto") ||
-      "https";
+      request.headers.get("x-forwarded-proto") || "https";
 
-    const siteUrl =
-      `${protocol}://${host}`;
+    const siteUrl = `${protocol}://${host}`;
 
-    const session =
-      await stripe.checkout.sessions.create({
-        mode: "payment",
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
 
-        payment_method_types: ["card"],
+      payment_method_types: ["card"],
 
-        customer_email: customer.email,
+      customer_email: customer.email,
 
-        billing_address_collection:
-          "required",
+      billing_address_collection: "required",
 
-        shipping_address_collection: {
-          allowed_countries: ["GB"],
-        },
+      shipping_address_collection: {
+        allowed_countries: ["GB"],
+      },
 
-        metadata: {
-          customer_name:
-            customer.name || "",
-
-          customer_address:
-            customer.address || "",
-
-          customer_town:
-            customer.town || "",
-
-          customer_postcode:
-            customer.postcode || "",
-        },
-
-        line_items: items.map(
-          (item: {
-            name: string;
-            price: number;
-            quantity: number;
-          }) => ({
-            price_data: {
+      shipping_options: [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: {
+              amount: 399,
               currency: "gbp",
-
-              product_data: {
-                name: item.name,
+            },
+            display_name: "Evri Delivery",
+            delivery_estimate: {
+              minimum: {
+                unit: "business_day",
+                value: 2,
               },
+              maximum: {
+                unit: "business_day",
+                value: 4,
+              },
+            },
+          },
+        },
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: {
+              amount: 299,
+              currency: "gbp",
+            },
+            display_name: "Relay Delivery",
+            delivery_estimate: {
+              minimum: {
+                unit: "business_day",
+                value: 2,
+              },
+              maximum: {
+                unit: "business_day",
+                value: 4,
+              },
+            },
+          },
+        },
+      ],
 
-              unit_amount:
-                Math.round(
-                  Number(item.price) * 100
-                ),
+      metadata: {
+        customer_name: customer.name || "",
+        customer_address: customer.address || "",
+        customer_town: customer.town || "",
+        customer_postcode: customer.postcode || "",
+      },
+
+      line_items: items.map(
+        (item: {
+          name: string;
+          price: number;
+          quantity: number;
+        }) => ({
+          price_data: {
+            currency: "gbp",
+
+            product_data: {
+              name: item.name,
             },
 
-            quantity:
-              Number(item.quantity),
-          })
-        ),
+            unit_amount: Math.round(
+              Number(item.price) * 100
+            ),
+          },
 
-        success_url:
-          `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+          quantity: Number(item.quantity),
+        })
+      ),
 
-        cancel_url:
-          `${siteUrl}/cart`,
-      });
+      success_url:
+        `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+
+      cancel_url: `${siteUrl}/cart`,
+    });
 
     if (!session.url) {
-      throw new Error(
-        "Stripe did not return a checkout URL."
-      );
+      throw new Error("Stripe did not return a checkout URL.");
     }
 
     return NextResponse.json({
       url: session.url,
     });
   } catch (error) {
-    console.error(
-      "Stripe checkout error:",
-      error
-    );
+    console.error("Stripe checkout error:", error);
 
     return NextResponse.json(
       {
