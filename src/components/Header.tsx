@@ -68,7 +68,7 @@ export default function Header() {
           />
         </Link>
 
-        {/* WISHLIST + BASKET */}
+        {/* WHATSAPP + WISHLIST + BASKET */}
 
         <div
           style={{
@@ -77,8 +77,24 @@ export default function Header() {
             bottom: "35px",
             display: "flex",
             gap: "16px",
+            alignItems: "center",
           }}
         >
+          <a
+            href="https://wa.me/447833439462"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              ...yellowButton,
+              textDecoration: "none",
+              color: "#05070b",
+              display: "block",
+              textAlign: "center",
+            }}
+          >
+            💬 WhatsApp Us
+          </a>
+
           <button
             type="button"
             onClick={() =>
@@ -204,7 +220,8 @@ export default function Header() {
         </nav>
       </div>
 
-      {/* FIXED SHOP FILTER BAR */}
+      {/* SHOP FILTER BAR */}
+
       <div
         style={{
           position: "relative",
@@ -221,21 +238,36 @@ export default function Header() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+
             const form = e.currentTarget;
             const data = new FormData(form);
 
-            const search = String(data.get("search") || "").trim();
-            const sort = String(data.get("sort") || "newest");
-            const category = String(data.get("category") || "home");
+            const search = String(
+              data.get("search") || ""
+            ).trim();
+
+            const sort = String(
+              data.get("sort") || "newest"
+            );
+
+            const category = String(
+              data.get("category") || "home"
+            );
+
             const stock = data.get("stock") === "on";
 
             const params = new URLSearchParams();
+
             if (search) params.set("search", search);
-            if (sort !== "newest") params.set("sort", sort);
+            if (sort !== "newest") {
+              params.set("sort", sort);
+            }
+
             if (stock) params.set("stock", "1");
 
             const query = params.toString();
-            const hash = category === "home" ? "shop" : category;
+            const hash =
+              category === "home" ? "shop" : category;
 
             window.location.href = `/?${query}#${hash}`;
           }}
