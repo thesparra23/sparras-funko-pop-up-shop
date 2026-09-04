@@ -811,3 +811,90 @@ main[style*="f8fafc"] strong,
 main[style*="f8fafc"] div {
   color: inherit;
 }
+/* EXTRA MOBILE FIXES */
+
+@media (max-width: 600px) {
+  .navbar {
+    padding: 15px;
+    gap: 15px;
+  }
+
+  .nav-links {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .nav-links a,
+  .nav-links button {
+    font-size: 14px;
+  }
+
+  .hero,
+  .products-section,
+  .cart-page,
+  .checkout-page {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  .hero h1 {
+    font-size: 32px;
+  }
+
+  .hero p {
+    font-size: 16px;
+  }
+
+  .hero-buttons {
+    gap: 12px;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    width: 100%;
+    padding: 14px 20px;
+    font-size: 16px;
+  }
+
+  .products-section {
+    padding-top: 30px;
+  }
+
+  .section-title {
+    font-size: 28px;
+  }
+
+  .figure-grid {
+    gap: 20px;
+  }
+
+  .image-wrapper {
+    height: 280px;
+  }
+
+  .card-content {
+    padding: 18px;
+  }
+
+  .card-content h3 {
+    font-size: 21px;
+  }
+
+  .product-price {
+    font-size: 21px;
+  }
+
+  .cart-item {
+    padding: 15px;
+    gap: 15px;
+  }
+
+  .cart-item-details h2 {
+    font-size: 20px;
+  }
+
+  .checkout-form,
+  .order-summary {
+    padding: 20px;
+  }
+}
