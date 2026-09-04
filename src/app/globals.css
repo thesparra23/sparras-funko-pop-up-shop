@@ -972,3 +972,22 @@ main[style*="f8fafc"] div {
     z-index: 1 !important;
   }
 }
+
+@media (max-width: 600px) {
+  header nav {
+    width: 100% !important;
+    overflow-x: auto !important;
+    justify-content: flex-start !important;
+  }
+
+  header nav > div {
+    min-width: max-content !important;
+  }
+
+  header nav a,
+  header nav button {
+    font-size: 13px !important;
+    padding: 8px 12px !important;
+    white-space: nowrap !important;
+  }
+}
