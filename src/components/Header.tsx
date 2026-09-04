@@ -68,7 +68,7 @@ export default function Header() {
           />
         </Link>
 
-        {/* WHATSAPP + WISHLIST + BASKET */}
+        {/* WHATSAPP ABOVE WISHLIST AND BASKET */}
 
         <div
           style={{
@@ -76,8 +76,9 @@ export default function Header() {
             right: "40px",
             bottom: "35px",
             display: "flex",
-            gap: "16px",
-            alignItems: "center",
+            flexDirection: "column",
+            gap: "12px",
+            alignItems: "flex-end",
           }}
         >
           <a
@@ -95,32 +96,40 @@ export default function Header() {
             💬 WhatsApp Us
           </a>
 
-          <button
-            type="button"
-            onClick={() =>
-              setWishlistCount((count) => count + 1)
-            }
-            style={yellowButton}
-          >
-            ❤️ Wishlist
-            <br />
-            <strong>({wishlistCount})</strong>
-          </button>
-
-          <Link
-            href="/cart"
+          <div
             style={{
-              ...yellowButton,
-              textDecoration: "none",
-              color: "#05070b",
-              display: "block",
-              textAlign: "center",
+              display: "flex",
+              gap: "16px",
+              alignItems: "center",
             }}
           >
-            🛒 Basket
-            <br />
-            <strong>({itemCount})</strong>
-          </Link>
+            <button
+              type="button"
+              onClick={() =>
+                setWishlistCount((count) => count + 1)
+              }
+              style={yellowButton}
+            >
+              ❤️ Wishlist
+              <br />
+              <strong>({wishlistCount})</strong>
+            </button>
+
+            <Link
+              href="/cart"
+              style={{
+                ...yellowButton,
+                textDecoration: "none",
+                color: "#05070b",
+                display: "block",
+                textAlign: "center",
+              }}
+            >
+              🛒 Basket
+              <br />
+              <strong>({itemCount})</strong>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -259,13 +268,17 @@ export default function Header() {
             const params = new URLSearchParams();
 
             if (search) params.set("search", search);
+
             if (sort !== "newest") {
               params.set("sort", sort);
             }
 
-            if (stock) params.set("stock", "1");
+            if (stock) {
+              params.set("stock", "1");
+            }
 
             const query = params.toString();
+
             const hash =
               category === "home" ? "shop" : category;
 
