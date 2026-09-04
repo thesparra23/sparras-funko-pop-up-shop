@@ -207,7 +207,7 @@ export default function Header() {
       {/* FIXED SHOP FILTER BAR */}
       <div
         style={{
-          position: "fixed",
+          position: "relative",
           top: 0,
           left: 0,
           right: 0,
