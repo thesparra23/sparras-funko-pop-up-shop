@@ -244,6 +244,30 @@ export default function ProductCard({
                 : "♡"}
             </button>
           </div>
+
+          {stock && stock > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setOfferMessage("");
+                setOfferOpen(true);
+              }}
+              style={{
+                width: "100%",
+                marginTop: "12px",
+                padding: "12px 16px",
+                border: "none",
+                borderRadius: "10px",
+                background: "#facc15",
+                color: "#111827",
+                fontSize: "16px",
+                fontWeight: "800",
+                cursor: "pointer",
+              }}
+            >
+              💷 Make an Offer
+            </button>
+          )}
         </div>
       </article>
 
