@@ -37,6 +37,9 @@ export default function ProductCard({
   const [galleryOpen, setGalleryOpen] =
     useState(false);
 
+  const [selectedImage, setSelectedImage] =
+    useState(0);
+
   const [offerOpen, setOfferOpen] =
     useState(false);
 
@@ -49,8 +52,11 @@ export default function ProductCard({
   const [offerEmail, setOfferEmail] =
     useState("");
 
-  const [selectedImage, setSelectedImage] =
-    useState(0);
+  const [offerMessage, setOfferMessage] =
+    useState("");
+
+  const [offerSending, setOfferSending] =
+    useState(false);
 
   const { addToCart } = useCart();
 
@@ -73,15 +79,51 @@ export default function ProductCard({
     });
   };
 
-  const handleOfferSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleOfferSubmit = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
+    setOfferSending(true);
+    setOfferMessage("");
 
-    const message = `Hi Sparra's Collectables, I'd like to make an offer of £${offerAmount} for ${name}. My name is ${offerName} and my email is ${offerEmail}.`;
+    try {
+      const response = await fetch("/api/make-offer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId,
+          productName: name,
+          askingPrice: numericPrice,
+          offerAmount: Number(offerAmount),
+          customerName: offerName,
+          customerEmail: offerEmail,
+        }),
+      });
 
-    window.location.href =
-      `mailto:offers@sparrascollectables.co.uk?subject=${encodeURIComponent(
-        `Offer for ${name}`
-      )}&body=${encodeURIComponent(message)}`;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Unable to send offer"
+        );
+      }
+
+      setOfferMessage(
+        "✅ Offer sent successfully. We'll be in touch."
+      );
+      setOfferAmount("");
+      setOfferName("");
+      setOfferEmail("");
+    } catch (error) {
+      console.error(error);
+      setOfferMessage(
+        "Sorry, we couldn't send your offer. Please try again."
+      );
+    } finally {
+      setOfferSending(false);
+    }
   };
 
   const galleryImages = [
@@ -141,6 +183,8 @@ export default function ProductCard({
             src={image}
             alt={name}
             className="figure-image"
+            loading="lazy"
+            decoding="async"
           />
 
           {galleryImages.length > 1 && (
@@ -215,6 +259,7 @@ export default function ProductCard({
             alignItems: "center",
             justifyContent: "center",
             padding: "20px",
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -222,7 +267,10 @@ export default function ProductCard({
             style={{
               width: "100%",
               maxWidth: "500px",
+              maxHeight: "90vh",
+              overflowY: "auto",
               background: "#111827",
+              color: "#ffffff",
               border: "1px solid #334155",
               borderRadius: "16px",
               padding: "25px",
@@ -258,8 +306,24 @@ export default function ProductCard({
               </button>
             </div>
 
-            <p style={{ color: "#cbd5e1", marginTop: "15px" }}>
+            <p
+              style={{
+                color: "#cbd5e1",
+                margin: "15px 0 5px",
+                fontWeight: "700",
+              }}
+            >
               {name}
+            </p>
+
+            <p
+              style={{
+                color: "#94a3b8",
+                margin: "0 0 18px",
+                fontSize: "14px",
+              }}
+            >
+              Asking price: {price}
             </p>
 
             <form
@@ -267,7 +331,6 @@ export default function ProductCard({
               style={{
                 display: "grid",
                 gap: "12px",
-                marginTop: "20px",
               }}
             >
               <input
@@ -320,8 +383,22 @@ export default function ProductCard({
                 }}
               />
 
+              {offerMessage && (
+                <div
+                  style={{
+                    padding: "10px",
+                    borderRadius: "8px",
+                    background: "#1e293b",
+                    color: "#ffffff",
+                  }}
+                >
+                  {offerMessage}
+                </div>
+              )}
+
               <button
                 type="submit"
+                disabled={offerSending}
                 style={{
                   padding: "13px",
                   border: "none",
@@ -330,10 +407,14 @@ export default function ProductCard({
                   color: "#111827",
                   fontWeight: "800",
                   fontSize: "16px",
-                  cursor: "pointer",
+                  cursor: offerSending
+                    ? "wait"
+                    : "pointer",
                 }}
               >
-                SEND OFFER
+                {offerSending
+                  ? "SENDING..."
+                  : "SEND OFFER"}
               </button>
             </form>
           </div>
@@ -423,6 +504,8 @@ export default function ProductCard({
                 alt={`${name} photo ${
                   selectedImage + 1
                 }`}
+                loading="lazy"
+                decoding="async"
                 style={{
                   maxWidth: "85%",
                   maxHeight: "100%",
@@ -544,6 +627,8 @@ export default function ProductCard({
                         alt={`${name} thumbnail ${
                           index + 1
                         }`}
+                        loading="lazy"
+                        decoding="async"
                         style={{
                           width: "100%",
                           height: "100%",
