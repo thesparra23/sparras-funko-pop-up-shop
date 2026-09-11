@@ -28,32 +28,24 @@ export default function ProductCard({
   image_5,
   image_6,
   price,
- badge,
+  badge,
   stock,
 }: ProductCardProps) {
-  const [wishlisted, setWishlisted] =
-    useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
 
-  const [galleryOpen, setGalleryOpen] =
-    useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
-  const [selectedImage, setSelectedImage] =
-    useState(0);
+  const [selectedImage, setSelectedImage] = useState(0);
 
-  const [offerOpen, setOfferOpen] =
-    useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
 
-  const [offerAmount, setOfferAmount] =
-    useState("");
+  const [offerAmount, setOfferAmount] = useState("");
+  const [offerName, setOfferName] = useState("");
 
-  const [offerName, setOfferName] =
-    useState("");
+  const [offerEmail, setOfferEmail] = useState("");
+  const [offerWhatsapp, setOfferWhatsapp] = useState("");
 
-  const [offerEmail, setOfferEmail] =
-    useState("");
-
-  const [offerMessage, setOfferMessage] =
-    useState("");
+  const [offerMessage, setOfferMessage] = useState("");
 
   const { addToCart } = useCart();
 
@@ -86,6 +78,7 @@ export default function ProductCard({
     if (
       !offerName.trim() ||
       !offerEmail.trim() ||
+      !offerWhatsapp.trim() ||
       !amount ||
       amount <= 0
     ) {
@@ -101,6 +94,7 @@ export default function ProductCard({
       `Offer: £${amount.toFixed(2)}`,
       `Name: ${offerName.trim()}`,
       `Email: ${offerEmail.trim()}`,
+      `WhatsApp: ${offerWhatsapp.trim()}`,
       "",
       "Sent from Sparra's Collectables",
     ].join("\n");
@@ -207,8 +201,20 @@ export default function ProductCard({
             {price}
           </div>
 
-          <div style={{ marginTop: "6px", fontSize: "13px", fontWeight: "700", color: stock && stock > 0 ? "#16a34a" : "#dc2626" }}>
-            {stock && stock > 0 ? `Available: ${stock}` : "Out of stock"}
+          <div
+            style={{
+              marginTop: "6px",
+              fontSize: "13px",
+              fontWeight: "700",
+              color:
+                stock && stock > 0
+                  ? "#16a34a"
+                  : "#dc2626",
+            }}
+          >
+            {stock && stock > 0
+              ? `Available: ${stock}`
+              : "Out of stock"}
           </div>
 
           <div className="card-buttons">
@@ -232,9 +238,7 @@ export default function ProductCard({
                   : `Add ${name} to wishlist`
               }
             >
-              {wishlisted
-                ? "❤️"
-                : "♡"}
+              {wishlisted ? "❤️" : "♡"}
             </button>
           </div>
 
@@ -280,7 +284,9 @@ export default function ProductCard({
           }}
         >
           <div
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
             style={{
               width: "100%",
               maxWidth: "500px",
@@ -308,7 +314,9 @@ export default function ProductCard({
 
               <button
                 type="button"
-                onClick={() => setOfferOpen(false)}
+                onClick={() =>
+                  setOfferOpen(false)
+                }
                 style={{
                   background: "#475569",
                   color: "#ffffff",
@@ -358,7 +366,9 @@ export default function ProductCard({
                 placeholder="Your offer (£)"
                 value={offerAmount}
                 onChange={(event) =>
-                  setOfferAmount(event.target.value)
+                  setOfferAmount(
+                    event.target.value
+                  )
                 }
                 style={{
                   padding: "12px",
@@ -374,7 +384,9 @@ export default function ProductCard({
                 placeholder="Your name"
                 value={offerName}
                 onChange={(event) =>
-                  setOfferName(event.target.value)
+                  setOfferName(
+                    event.target.value
+                  )
                 }
                 style={{
                   padding: "12px",
@@ -390,8 +402,29 @@ export default function ProductCard({
                 placeholder="Your email"
                 value={offerEmail}
                 onChange={(event) =>
-                  setOfferEmail(event.target.value)
+                  setOfferEmail(
+                    event.target.value
+                  )
                 }
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid #475569",
+                  fontSize: "16px",
+                }}
+              />
+
+              <input
+                type="tel"
+                required
+                placeholder="Your WhatsApp number"
+                value={offerWhatsapp}
+                onChange={(event) =>
+                  setOfferWhatsapp(
+                    event.target.value
+                  )
+                }
+                inputMode="tel"
                 style={{
                   padding: "12px",
                   borderRadius: "8px",
@@ -488,8 +521,7 @@ export default function ProductCard({
             <h2
               style={{
                 color: "#ffffff",
-                margin:
-                  "0 0 15px",
+                margin: "0 0 15px",
                 textAlign: "center",
                 fontSize: "26px",
               }}
@@ -532,26 +564,20 @@ export default function ProductCard({
                     type="button"
                     onClick={previousImage}
                     style={{
-                      position:
-                        "absolute",
+                      position: "absolute",
                       left: "10px",
                       top: "50%",
                       transform:
                         "translateY(-50%)",
                       width: "50px",
                       height: "50px",
-                      borderRadius:
-                        "50%",
+                      borderRadius: "50%",
                       border: "none",
-                      background:
-                        "#ffd21c",
-                      color:
-                        "#05070b",
+                      background: "#ffd21c",
+                      color: "#05070b",
                       fontSize: "28px",
-                      fontWeight:
-                        "900",
-                      cursor:
-                        "pointer",
+                      fontWeight: "900",
+                      cursor: "pointer",
                     }}
                     aria-label="Previous photo"
                   >
@@ -562,26 +588,20 @@ export default function ProductCard({
                     type="button"
                     onClick={nextImage}
                     style={{
-                      position:
-                        "absolute",
+                      position: "absolute",
                       right: "10px",
                       top: "50%",
                       transform:
                         "translateY(-50%)",
                       width: "50px",
                       height: "50px",
-                      borderRadius:
-                        "50%",
+                      borderRadius: "50%",
                       border: "none",
-                      background:
-                        "#ffd21c",
-                      color:
-                        "#05070b",
+                      background: "#ffd21c",
+                      color: "#05070b",
                       fontSize: "28px",
-                      fontWeight:
-                        "900",
-                      cursor:
-                        "pointer",
+                      fontWeight: "900",
+                      cursor: "pointer",
                     }}
                     aria-label="Next photo"
                   >
@@ -599,39 +619,29 @@ export default function ProductCard({
                   marginTop: "18px",
                   overflowX: "auto",
                   maxWidth: "100%",
-                  padding:
-                    "5px 5px 10px",
+                  padding: "5px 5px 10px",
                 }}
               >
                 {galleryImages.map(
-                  (
-                    photo,
-                    index
-                  ) => (
+                  (photo, index) => (
                     <button
                       key={photo}
                       type="button"
                       onClick={() =>
-                        setSelectedImage(
-                          index
-                        )
+                        setSelectedImage(index)
                       }
                       style={{
                         width: "80px",
                         height: "80px",
                         flexShrink: 0,
                         padding: "4px",
-                        borderRadius:
-                          "10px",
+                        borderRadius: "10px",
                         border:
-                          selectedImage ===
-                          index
+                          selectedImage === index
                             ? "3px solid #ffd21c"
                             : "2px solid #334155",
-                        background:
-                          "#ffffff",
-                        cursor:
-                          "pointer",
+                        background: "#ffffff",
+                        cursor: "pointer",
                       }}
                     >
                       <img
@@ -644,8 +654,7 @@ export default function ProductCard({
                         style={{
                           width: "100%",
                           height: "100%",
-                          objectFit:
-                            "contain",
+                          objectFit: "contain",
                         }}
                       />
                     </button>
@@ -661,8 +670,7 @@ export default function ProductCard({
                 marginTop: "10px",
               }}
             >
-              Photo{" "}
-              {selectedImage + 1} of{" "}
+              Photo {selectedImage + 1} of{" "}
               {galleryImages.length}
             </div>
           </div>
