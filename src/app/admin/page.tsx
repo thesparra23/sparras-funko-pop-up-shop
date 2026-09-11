@@ -935,7 +935,7 @@ export default function AdminPage() {
                     setIsVaulted(e.target.checked)
                   }
                 />
-                🔒 Vaulted
+                🔒 Limited Edition
               </label>
 
               <label style={tagStyle}>
@@ -946,7 +946,7 @@ export default function AdminPage() {
                     setIsOffer(e.target.checked)
                   }
                 />
-                🔥 Offer
+                🔥 Special Edition
               </label>
             </div>
           </div>
