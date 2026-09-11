@@ -55,9 +55,6 @@ export default function ProductCard({
   const [offerMessage, setOfferMessage] =
     useState("");
 
-  const [offerSending, setOfferSending] =
-    useState(false);
-
   const { addToCart } = useCart();
 
   const productId =
@@ -79,51 +76,47 @@ export default function ProductCard({
     });
   };
 
-  const handleOfferSubmit = async (
+  const handleOfferSubmit = (
     event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
-    setOfferSending(true);
-    setOfferMessage("");
 
-    try {
-      const response = await fetch("/api/make-offer", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productId,
-          productName: name,
-          askingPrice: numericPrice,
-          offerAmount: Number(offerAmount),
-          customerName: offerName,
-          customerEmail: offerEmail,
-        }),
-      });
+    const amount = Number(offerAmount);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error || "Unable to send offer"
-        );
-      }
-
-      setOfferMessage(
-        "✅ Offer sent successfully. We'll be in touch."
-      );
-      setOfferAmount("");
-      setOfferName("");
-      setOfferEmail("");
-    } catch (error) {
-      console.error(error);
-      setOfferMessage(
-        "Sorry, we couldn't send your offer. Please try again."
-      );
-    } finally {
-      setOfferSending(false);
+    if (
+      !offerName.trim() ||
+      !offerEmail.trim() ||
+      !amount ||
+      amount <= 0
+    ) {
+      setOfferMessage("Please complete all fields.");
+      return;
     }
+
+    const message = [
+      "💷 NEW MAKE AN OFFER",
+      "",
+      `Product: ${name}`,
+      `Asking price: ${price}`,
+      `Offer: £${amount.toFixed(2)}`,
+      `Name: ${offerName.trim()}`,
+      `Email: ${offerEmail.trim()}`,
+      "",
+      "Sent from Sparra's Collectables",
+    ].join("\n");
+
+    const whatsappUrl =
+      `https://wa.me/447833439462?text=${encodeURIComponent(message)}`;
+
+    window.open(
+      whatsappUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    setOfferMessage(
+      "✅ WhatsApp has opened with your offer ready to send."
+    );
   };
 
   const galleryImages = [
@@ -422,7 +415,6 @@ export default function ProductCard({
 
               <button
                 type="submit"
-                disabled={offerSending}
                 style={{
                   padding: "13px",
                   border: "none",
@@ -431,14 +423,10 @@ export default function ProductCard({
                   color: "#111827",
                   fontWeight: "800",
                   fontSize: "16px",
-                  cursor: offerSending
-                    ? "wait"
-                    : "pointer",
+                  cursor: "pointer",
                 }}
               >
-                {offerSending
-                  ? "SENDING..."
-                  : "SEND OFFER"}
+                SEND OFFER VIA WHATSAPP
               </button>
             </form>
           </div>
