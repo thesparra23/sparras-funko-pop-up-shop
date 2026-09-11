@@ -60,14 +60,30 @@ export default function AdminPage() {
 
     setCategories(loadedCategories);
 
-    if (
-      loadedCategories.length > 0 &&
-      !loadedCategories.some(
-        (item) => item.name === category
-      )
-    ) {
-      setCategory(loadedCategories[0].name);
+    if (loadedCategories.length > 0) {
+      let savedCategory = "";
+
+      try {
+        savedCategory =
+          window.localStorage.getItem(
+            "sparras-admin-last-category"
+          ) || "";
+      } catch {
+        savedCategory = "";
+      }
+
+      const preferredCategory =
+        loadedCategories.find(
+          (item) => item.name === savedCategory
+        )?.name ||
+        loadedCategories.find(
+          (item) => item.name === category
+        )?.name ||
+        loadedCategories[0].name;
+
+      setCategory(preferredCategory);
     }
+
   }
 
   useEffect(() => {
@@ -447,11 +463,9 @@ export default function AdminPage() {
     setImages(Array(6).fill(""));
     setPrice("");
     setStock("1");
-    setCategory(
-      categories.length > 0
-        ? categories[0].name
-        : ""
-    );
+    // Keep the current category selected for the next product.
+    // This makes batch uploads much quicker.
+    setCategory(category);
     setBadge("");
     setDescription("");
 
@@ -494,11 +508,27 @@ export default function AdminPage() {
         <p
           style={{
             color: "#94a3b8",
-            marginBottom: "20px",
+            marginBottom: "10px",
           }}
         >
           Add a product quickly from your phone.
         </p>
+
+        <div
+          style={{
+            background: "#172554",
+            border: "1px solid #1d4ed8",
+            borderRadius: "12px",
+            padding: "11px 13px",
+            marginBottom: "20px",
+            color: "#bfdbfe",
+            fontSize: "14px",
+            fontWeight: "700",
+          }}
+        >
+          ⚡ Quick upload: your last-used category is remembered
+          for the next product.
+        </div>
 
         {/* CATEGORY MANAGER */}
 
@@ -829,9 +859,19 @@ export default function AdminPage() {
 
             <select
               value={category}
-              onChange={(e) =>
-                setCategory(e.target.value)
-              }
+              onChange={(e) => {
+                const nextCategory = e.target.value;
+                setCategory(nextCategory);
+
+                try {
+                  window.localStorage.setItem(
+                    "sparras-admin-last-category",
+                    nextCategory
+                  );
+                } catch {
+                  // Ignore local storage errors.
+                }
+              }}
               style={inputStyle}
             >
               {categories.map((categoryItem) => (
