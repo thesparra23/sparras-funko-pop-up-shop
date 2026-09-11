@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { useCart } from "../context/CartContext";
 
 type ProductCardProps = {
@@ -36,6 +37,18 @@ export default function ProductCard({
   const [galleryOpen, setGalleryOpen] =
     useState(false);
 
+  const [offerOpen, setOfferOpen] =
+    useState(false);
+
+  const [offerAmount, setOfferAmount] =
+    useState("");
+
+  const [offerName, setOfferName] =
+    useState("");
+
+  const [offerEmail, setOfferEmail] =
+    useState("");
+
   const [selectedImage, setSelectedImage] =
     useState(0);
 
@@ -58,6 +71,17 @@ export default function ProductCard({
       image,
       price: numericPrice,
     });
+  };
+
+  const handleOfferSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const message = `Hi Sparra's Collectables, I'd like to make an offer of £${offerAmount} for ${name}. My name is ${offerName} and my email is ${offerEmail}.`;
+
+    window.location.href =
+      `mailto:offers@sparrascollectables.co.uk?subject=${encodeURIComponent(
+        `Offer for ${name}`
+      )}&body=${encodeURIComponent(message)}`;
   };
 
   const galleryImages = [
@@ -178,6 +202,143 @@ export default function ProductCard({
           </div>
         </div>
       </article>
+
+      {offerOpen && (
+        <div
+          onClick={() => setOfferOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.8)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "500px",
+              background: "#111827",
+              border: "1px solid #334155",
+              borderRadius: "16px",
+              padding: "25px",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "15px",
+              }}
+            >
+              <h2 style={{ margin: 0 }}>
+                💷 Make an Offer
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setOfferOpen(false)}
+                style={{
+                  background: "#475569",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontWeight: "700",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ color: "#cbd5e1", marginTop: "15px" }}>
+              {name}
+            </p>
+
+            <form
+              onSubmit={handleOfferSubmit}
+              style={{
+                display: "grid",
+                gap: "12px",
+                marginTop: "20px",
+              }}
+            >
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                required
+                placeholder="Your offer (£)"
+                value={offerAmount}
+                onChange={(event) =>
+                  setOfferAmount(event.target.value)
+                }
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid #475569",
+                  fontSize: "16px",
+                }}
+              />
+
+              <input
+                type="text"
+                required
+                placeholder="Your name"
+                value={offerName}
+                onChange={(event) =>
+                  setOfferName(event.target.value)
+                }
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid #475569",
+                  fontSize: "16px",
+                }}
+              />
+
+              <input
+                type="email"
+                required
+                placeholder="Your email"
+                value={offerEmail}
+                onChange={(event) =>
+                  setOfferEmail(event.target.value)
+                }
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid #475569",
+                  fontSize: "16px",
+                }}
+              />
+
+              <button
+                type="submit"
+                style={{
+                  padding: "13px",
+                  border: "none",
+                  borderRadius: "8px",
+                  background: "#facc15",
+                  color: "#111827",
+                  fontWeight: "800",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                }}
+              >
+                SEND OFFER
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {galleryOpen && (
         <div
