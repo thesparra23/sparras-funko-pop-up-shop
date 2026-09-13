@@ -19,6 +19,7 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function loadProducts() {
     if (!supabase) {
@@ -128,6 +129,38 @@ export default function StockPage() {
       updatedProduct,
       `✅ 1 x ${product.name} marked as sold`
     );
+  }
+
+  async function deleteProduct(product: Product) {
+    if (!supabase) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${product.name}"?`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingId(product.id);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", product.id);
+
+    if (error) {
+      console.error(error);
+      setMessage(`Error deleting ${product.name}: ${error.message}`);
+      setDeletingId(null);
+      return;
+    }
+
+    setProducts((current) =>
+      current.filter((item) => item.id !== product.id)
+    );
+
+    setMessage(`🗑️ ${product.name} deleted successfully.`);
+    setDeletingId(null);
   }
 
   const filteredProducts = products.filter((product) =>
@@ -404,6 +437,35 @@ export default function StockPage() {
                       }}
                     >
                       ✓ SOLD
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => deleteProduct(product)}
+                      disabled={
+                        savingId === product.id ||
+                        deletingId === product.id
+                      }
+                      style={{
+                        background:
+                          deletingId === product.id
+                            ? "#64748b"
+                            : "#ef4444",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "11px 18px",
+                        fontWeight: "800",
+                        cursor:
+                          savingId === product.id ||
+                          deletingId === product.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      {deletingId === product.id
+                        ? "Deleting..."
+                        : "🗑️ DELETE"}
                     </button>
                   </div>
 
