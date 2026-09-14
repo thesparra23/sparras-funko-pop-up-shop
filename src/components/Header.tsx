@@ -68,7 +68,7 @@ export default function Header() {
           />
         </Link>
 
-        {/* WHATSAPP ABOVE WISHLIST AND BASKET */}
+        {/* CONTACT / WISHLIST / BASKET */}
 
         <div
           style={{
@@ -94,6 +94,19 @@ export default function Header() {
             }}
           >
             💬 WhatsApp Us
+          </a>
+
+          <a
+            href="mailto:sparrascollectables@gmail.com"
+            style={{
+              ...yellowButton,
+              textDecoration: "none",
+              color: "#05070b",
+              display: "block",
+              textAlign: "center",
+            }}
+          >
+            📧 Email Us
           </a>
 
           <div
