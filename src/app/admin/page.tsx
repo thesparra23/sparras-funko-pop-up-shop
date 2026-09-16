@@ -20,7 +20,8 @@ export default function AdminPage() {
   const [category, setCategory] = useState("Marvel");
 
   const [badge, setBadge] = useState("");
-  const [description, setDescription] = useState("");
+  const DEFAULT_DESCRIPTION = "Condition as shown in photos";
+  const [description, setDescription] = useState(DEFAULT_DESCRIPTION);
 
   const [isChase, setIsChase] = useState(false);
   const [isVaulted, setIsVaulted] = useState(false);
@@ -467,7 +468,7 @@ export default function AdminPage() {
     // This makes batch uploads much quicker.
     setCategory(category);
     setBadge("");
-    setDescription("");
+    setDescription(DEFAULT_DESCRIPTION);
 
     setIsChase(false);
     setIsVaulted(false);
