@@ -11,6 +11,7 @@ type Product = {
   stock: number;
   category: string | null;
   badge: string | null;
+  description: string | null;
 };
 
 export default function StockPage() {
@@ -20,6 +21,14 @@ export default function StockPage() {
   const [message, setMessage] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    price: "",
+    description: "",
+    category: "",
+    badge: "",
+  });
 
   async function loadProducts() {
     if (!supabase) {
@@ -32,7 +41,7 @@ export default function StockPage() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, image, price, stock, category, badge")
+      .select("id, name, image, price, stock, category, badge, description")
       .order("name", { ascending: true });
 
     if (error) {
@@ -129,6 +138,68 @@ export default function StockPage() {
       updatedProduct,
       `✅ 1 x ${product.name} marked as sold`
     );
+  }
+
+  function startEditing(product: Product) {
+    setEditingId(product.id);
+    setEditForm({
+      name: product.name,
+      price: String(product.price),
+      description: product.description || "",
+      category: product.category || "",
+      badge: product.badge || "",
+    });
+    setMessage("");
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+  }
+
+  async function saveProductDetails(product: Product) {
+    if (!supabase) return;
+
+    if (!editForm.name.trim()) {
+      setMessage("❌ Product name cannot be empty.");
+      return;
+    }
+
+    const price = Number(editForm.price);
+    if (!Number.isFinite(price) || price < 0) {
+      setMessage("❌ Please enter a valid price.");
+      return;
+    }
+
+    setSavingId(product.id);
+    setMessage("");
+
+    const { data, error } = await supabase
+      .from("products")
+      .update({
+        name: editForm.name.trim(),
+        price,
+        description: editForm.description.trim() || null,
+        category: editForm.category.trim() || null,
+        badge: editForm.badge.trim() || null,
+      })
+      .eq("id", product.id)
+      .select("id, name, image, price, stock, category, badge, description")
+      .single();
+
+    if (error) {
+      console.error(error);
+      setMessage(`Error saving ${product.name}: ${error.message}`);
+      setSavingId(null);
+      return;
+    }
+
+    setProducts((current) =>
+      current.map((item) => (item.id === product.id ? data : item))
+    );
+
+    setMessage(`✅ ${data.name} details updated successfully.`);
+    setSavingId(null);
+    setEditingId(null);
   }
 
   async function deleteProduct(product: Product) {
@@ -337,6 +408,108 @@ export default function StockPage() {
                     )}
                   </div>
 
+                  {editingId === product.id ? (
+                    <div
+                      style={{
+                        flex: "1 1 100%",
+                        display: "grid",
+                        gap: "10px",
+                        background: "#1e293b",
+                        padding: "15px",
+                        borderRadius: "12px",
+                        border: "1px solid #475569",
+                      }}
+                    >
+                      <strong style={{ fontSize: "18px" }}>✏️ Edit Product</strong>
+
+                      <input
+                        value={editForm.name}
+                        onChange={(e) =>
+                          setEditForm((current) => ({
+                            ...current,
+                            name: e.target.value,
+                          }))
+                        }
+                        placeholder="Product name"
+                        style={editInputStyle}
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editForm.price}
+                        onChange={(e) =>
+                          setEditForm((current) => ({
+                            ...current,
+                            price: e.target.value,
+                          }))
+                        }
+                        placeholder="Price"
+                        style={editInputStyle}
+                      />
+
+                      <input
+                        value={editForm.category}
+                        onChange={(e) =>
+                          setEditForm((current) => ({
+                            ...current,
+                            category: e.target.value,
+                          }))
+                        }
+                        placeholder="Category"
+                        style={editInputStyle}
+                      />
+
+                      <input
+                        value={editForm.badge}
+                        onChange={(e) =>
+                          setEditForm((current) => ({
+                            ...current,
+                            badge: e.target.value,
+                          }))
+                        }
+                        placeholder="Badge"
+                        style={editInputStyle}
+                      />
+
+                      <textarea
+                        value={editForm.description}
+                        onChange={(e) =>
+                          setEditForm((current) => ({
+                            ...current,
+                            description: e.target.value,
+                          }))
+                        }
+                        rows={4}
+                        placeholder="Product description"
+                        style={{
+                          ...editInputStyle,
+                          resize: "vertical",
+                        }}
+                      />
+
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => saveProductDetails(product)}
+                          disabled={savingId === product.id}
+                          style={editSaveButtonStyle}
+                        >
+                          {savingId === product.id ? "Saving..." : "💾 SAVE DETAILS"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={cancelEditing}
+                          disabled={savingId === product.id}
+                          style={editCancelButtonStyle}
+                        >
+                          CANCEL
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                   <div
                     style={{
                       display: "flex",
@@ -467,7 +640,32 @@ export default function StockPage() {
                         ? "Deleting..."
                         : "🗑️ DELETE"}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => startEditing(product)}
+                      disabled={
+                        savingId === product.id ||
+                        deletingId === product.id
+                      }
+                      style={{
+                        background: "#3b82f6",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "11px 18px",
+                        fontWeight: "800",
+                        cursor:
+                          savingId === product.id ||
+                          deletingId === product.id
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      ✏️ EDIT
+                    </button>
                   </div>
+                  )}
 
                   <div
                     style={{
@@ -506,5 +704,37 @@ const stockButton = {
   color: "#ffffff",
   fontSize: "24px",
   fontWeight: "700",
+  cursor: "pointer",
+};
+
+
+const editInputStyle = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: "8px",
+  border: "1px solid #475569",
+  background: "#0f172a",
+  color: "#ffffff",
+  fontSize: "16px",
+  boxSizing: "border-box" as const,
+};
+
+const editSaveButtonStyle = {
+  border: "none",
+  borderRadius: "8px",
+  padding: "11px 18px",
+  background: "#facc15",
+  color: "#111827",
+  fontWeight: "800",
+  cursor: "pointer",
+};
+
+const editCancelButtonStyle = {
+  border: "none",
+  borderRadius: "8px",
+  padding: "11px 18px",
+  background: "#475569",
+  color: "#ffffff",
+  fontWeight: "800",
   cursor: "pointer",
 };
