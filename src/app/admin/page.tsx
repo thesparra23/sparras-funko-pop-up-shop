@@ -7,6 +7,7 @@ type Category = {
   id: number;
   name: string;
   slug: string;
+  parent_id: number | null;
 };
 
 const supabase = createClient();
@@ -37,6 +38,7 @@ export default function AdminPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategory, setNewCategory] = useState("");
+  const [newCategoryParent, setNewCategoryParent] = useState("");
   const [categoryMessage, setCategoryMessage] = useState("");
   const [categorySaving, setCategorySaving] = useState(false);
 
@@ -48,7 +50,7 @@ export default function AdminPage() {
 
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name, slug")
+      .select("id, name, slug, parent_id")
       .order("name");
 
     if (error) {
@@ -124,7 +126,9 @@ export default function AdminPage() {
       categories.some(
         (item) =>
           item.name.toLowerCase() ===
-          trimmedName.toLowerCase()
+            trimmedName.toLowerCase() &&
+          item.parent_id ===
+            (newCategoryParent ? Number(newCategoryParent) : null)
       )
     ) {
       setCategoryMessage("That category already exists.");
@@ -139,8 +143,11 @@ export default function AdminPage() {
       .insert({
         name: trimmedName,
         slug,
+        parent_id: newCategoryParent
+          ? Number(newCategoryParent)
+          : null,
       })
-      .select("id, name, slug")
+      .select("id, name, slug, parent_id")
       .single();
 
     if (error) {
@@ -161,6 +168,7 @@ export default function AdminPage() {
     }
 
     setNewCategory("");
+    setNewCategoryParent("");
     setCategoryMessage("✅ Category added successfully!");
     setCategorySaving(false);
   }
@@ -191,7 +199,8 @@ export default function AdminPage() {
       categories.some(
         (item) =>
           item.name.toLowerCase() ===
-          trimmedName.toLowerCase()
+            trimmedName.toLowerCase() &&
+          item.parent_id === categoryItem.parent_id
       )
     ) {
       setCategoryMessage("That category already exists.");
@@ -280,6 +289,20 @@ export default function AdminPage() {
 
     setCategorySaving(true);
     setCategoryMessage("");
+
+    const childCount = categories.filter(
+      (item) => item.parent_id === categoryItem.id
+    ).length;
+
+    if (childCount > 0) {
+      setCategoryMessage(
+        `Cannot delete "${categoryItem.name}" because it has ${childCount} subcategor${
+          childCount === 1 ? "y" : "ies"
+        }. Delete the subcategories first.`
+      );
+      setCategorySaving(false);
+      return;
+    }
 
     const { count, error: productCheckError } =
       await supabase
@@ -548,7 +571,7 @@ export default function AdminPage() {
               fontSize: "22px",
             }}
           >
-            📂 Categories
+            📂 Categories & Subcategories
           </h2>
 
           <p
@@ -557,14 +580,12 @@ export default function AdminPage() {
               margin: "0 0 14px",
             }}
           >
-            Add, rename or remove product categories.
+            Add, rename or remove main categories and subcategories.
           </p>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns:
-                "1fr auto",
               gap: "10px",
             }}
           >
@@ -579,30 +600,58 @@ export default function AdminPage() {
                   addCategory();
                 }
               }}
-              placeholder="New category e.g. Clothing"
+              placeholder="New category e.g. Mens"
               style={inputStyle}
             />
 
-            <button
-              type="button"
-              onClick={addCategory}
-              disabled={categorySaving}
+            <div
               style={{
-                border: "none",
-                borderRadius: "10px",
-                padding: "0 18px",
-                background: categorySaving
-                  ? "#64748b"
-                  : "#facc15",
-                color: "#111827",
-                fontWeight: "800",
-                cursor: categorySaving
-                  ? "not-allowed"
-                  : "pointer",
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: "10px",
               }}
             >
-              ➕ Add
-            </button>
+              <select
+                value={newCategoryParent}
+                onChange={(event) =>
+                  setNewCategoryParent(event.target.value)
+                }
+                style={inputStyle}
+              >
+                <option value="">Top level category</option>
+                {categories
+                  .filter((item) => item.parent_id === null)
+                  .map((parentCategory) => (
+                    <option
+                      key={parentCategory.id}
+                      value={parentCategory.id}
+                    >
+                      ↳ Add under {parentCategory.name}
+                    </option>
+                  ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={addCategory}
+                disabled={categorySaving}
+                style={{
+                  border: "none",
+                  borderRadius: "10px",
+                  padding: "0 18px",
+                  background: categorySaving
+                    ? "#64748b"
+                    : "#facc15",
+                  color: "#111827",
+                  fontWeight: "800",
+                  cursor: categorySaving
+                    ? "not-allowed"
+                    : "pointer",
+                }}
+              >
+                ➕ Add
+              </button>
+            </div>
           </div>
 
           <div
@@ -612,63 +661,132 @@ export default function AdminPage() {
               marginTop: "14px",
             }}
           >
-            {categories.map((categoryItem) => (
-              <div
-                key={categoryItem.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "10px",
-                  padding: "10px 12px",
-                  background: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "10px",
-                }}
-              >
-                <span
-                  style={{
-                    fontWeight: "700",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {categoryItem.name}
-                </span>
+            {categories
+              .filter((item) => item.parent_id === null)
+              .map((parentCategory) => {
+                const children = categories
+                  .filter(
+                    (item) => item.parent_id === parentCategory.id
+                  )
+                  .sort((a, b) => a.name.localeCompare(b.name));
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "7px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      renameCategory(categoryItem)
-                    }
-                    disabled={categorySaving}
-                    style={smallButtonStyle}
-                  >
-                    ✏️
-                  </button>
+                return (
+                  <div key={parentCategory.id}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        padding: "10px 12px",
+                        background: "#1e293b",
+                        border: "1px solid #334155",
+                        borderRadius: "10px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: "800",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {parentCategory.name}
+                      </span>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      deleteCategory(categoryItem)
-                    }
-                    disabled={categorySaving}
-                    style={{
-                      ...smallButtonStyle,
-                      background: "#7f1d1d",
-                    }}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "7px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            renameCategory(parentCategory)
+                          }
+                          disabled={categorySaving}
+                          style={smallButtonStyle}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            deleteCategory(parentCategory)
+                          }
+                          disabled={categorySaving}
+                          style={{
+                            ...smallButtonStyle,
+                            background: "#7f1d1d",
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+
+                    {children.map((childCategory) => (
+                      <div
+                        key={childCategory.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                          padding: "8px 12px 8px 28px",
+                          marginTop: "5px",
+                          background: "#172033",
+                          border: "1px solid #2b3a50",
+                          borderRadius: "9px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: "700",
+                            wordBreak: "break-word",
+                            color: "#cbd5e1",
+                          }}
+                        >
+                          ↳ {childCategory.name}
+                        </span>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "7px",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              renameCategory(childCategory)
+                            }
+                            disabled={categorySaving}
+                            style={smallButtonStyle}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteCategory(childCategory)
+                            }
+                            disabled={categorySaving}
+                            style={{
+                              ...smallButtonStyle,
+                              background: "#7f1d1d",
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
 
             {categories.length === 0 && (
               <p
@@ -875,14 +993,39 @@ export default function AdminPage() {
               }}
               style={inputStyle}
             >
-              {categories.map((categoryItem) => (
-                <option
-                  key={categoryItem.id}
-                  value={categoryItem.name}
-                >
-                  {categoryItem.name}
-                </option>
-              ))}
+              {categories.length > 0
+                ? categories
+                    .filter((item) => item.parent_id === null)
+                    .map((parentCategory) => {
+                      const children = categories
+                        .filter(
+                          (item) =>
+                            item.parent_id === parentCategory.id
+                        )
+                        .sort((a, b) =>
+                          a.name.localeCompare(b.name)
+                        );
+
+                      return (
+                        <optgroup
+                          key={parentCategory.id}
+                          label={parentCategory.name}
+                        >
+                          <option value={parentCategory.name}>
+                            {parentCategory.name}
+                          </option>
+                          {children.map((childCategory) => (
+                            <option
+                              key={childCategory.id}
+                              value={childCategory.name}
+                            >
+                              ↳ {childCategory.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    })
+                : null}
             </select>
           </label>
 
