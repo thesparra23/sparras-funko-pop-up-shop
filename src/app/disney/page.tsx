@@ -48,6 +48,11 @@ export default function DisneyPage() {
           style={{
             paddingTop: "80px",
             minHeight: "70vh",
+            backgroundImage:
+              "url('/category-backgrounds/disney-background.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "top center",
+            backgroundRepeat: "repeat-y",
           }}
         >
           <h1 className="section-title">
@@ -57,13 +62,13 @@ export default function DisneyPage() {
           <p
             style={{
               textAlign: "center",
-              color: "#94a3b8",
+              color: "#334155",
               fontSize: "20px",
               marginBottom: "50px",
+              fontWeight: 600,
             }}
           >
-            Disney favourites, classics and
-            collectible characters.
+            Disney favourites, classics and collectible characters.
           </p>
 
           {products.length > 0 ? (
@@ -83,9 +88,10 @@ export default function DisneyPage() {
             <p
               style={{
                 textAlign: "center",
-                color: "#94a3b8",
+                color: "#334155",
                 fontSize: "20px",
                 marginTop: "70px",
+                fontWeight: 600,
               }}
             >
               No Disney Pops available yet.
