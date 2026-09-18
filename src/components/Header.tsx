@@ -238,21 +238,21 @@ export default function Header() {
 
           {/* MAIN CATEGORIES */}
 
-          <Link href="/disney" style={navStyle}>
+          <a href="/disney" style={navStyle}>
             DISNEY
-          </Link>
+          </a>
 
-          <Link href="/" style={navStyle}>
+          <a href="/" style={navStyle}>
             CLOTHING
-          </Link>
+          </a>
 
-          <Link href="/" style={navStyle}>
+          <a href="/" style={navStyle}>
             LOUNGEFLY
-          </Link>
+          </a>
 
-          <Link href="/" style={navStyle}>
+          <a href="/" style={navStyle}>
             CLEARANCE ITEMS
-          </Link>
+          </a>
         </nav>
       </div>
 
