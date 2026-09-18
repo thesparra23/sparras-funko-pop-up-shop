@@ -59,8 +59,11 @@ export default function ClothingPage() {
           style={{
             paddingTop: "80px",
             minHeight: "70vh",
-            background:
-              "linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.92))",
+            backgroundImage:
+              "linear-gradient(rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.82)), url('/category-backgrounds/clothing-background.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundAttachment: "fixed",
           }}
         >
           <h1
