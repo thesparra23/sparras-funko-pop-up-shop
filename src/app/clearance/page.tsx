@@ -18,7 +18,6 @@ type Product = {
   price: number;
   badge?: string | null;
   stock: number;
-  is_offer?: boolean | null;
 };
 
 export default function ClearancePage() {
@@ -31,9 +30,9 @@ export default function ClearancePage() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, name, image, image_2, image_3, image_4, image_5, image_6, price, badge, stock, is_offer"
+          "id, name, image, image_2, image_3, image_4, image_5, image_6, price, badge, stock"
         )
-        .eq("is_offer", true)
+        .eq("category", "Clearance")
         .order("created_at", {
           ascending: false,
         });
@@ -83,7 +82,7 @@ export default function ClearancePage() {
               fontWeight: 600,
             }}
           >
-            Great prices on selected items. All offers considered.
+            Great prices on selected items.
           </p>
 
           {products.length > 0 ? (
