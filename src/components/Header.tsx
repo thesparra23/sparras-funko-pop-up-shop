@@ -242,15 +242,15 @@ export default function Header() {
             DISNEY
           </Link>
 
-          <Link href="/?category=clothing#shop" style={navStyle}>
+          <Link href="/clothing#shop" style={navStyle}>
             CLOTHING
           </Link>
 
-          <Link href="/?category=loungefly#shop" style={navStyle}>
+          <Link href="/loungefly#shop" style={navStyle}>
             LOUNGEFLY
           </Link>
 
-          <Link href="/?category=clearance#shop" style={navStyle}>
+          <Link href="/clearance#shop" style={navStyle}>
             CLEARANCE ITEMS
           </Link>
         </nav>
