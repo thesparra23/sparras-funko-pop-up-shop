@@ -202,8 +202,7 @@ export default function Header() {
                 style={{
                   position: "absolute",
                   top: "100%",
-                  left: "50%",
-                  transform: "translateX(-50%)",
+                  left: "0",
                   width: "260px",
                   maxHeight: "650px",
                   overflowY: "auto",
@@ -239,7 +238,7 @@ export default function Header() {
 
           {/* MAIN CATEGORIES */}
 
-          <Link href="/" style={navStyle}>
+          <Link href="/disney" style={navStyle}>
             DISNEY
           </Link>
 
