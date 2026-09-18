@@ -21,7 +21,7 @@ type Product = {
   is_offer: boolean;
 };
 
-const categories = [
+const fallbackCategories = [
   "Marvel",
   "DC",
   "Star Wars",
@@ -37,6 +37,13 @@ const categories = [
   "Animation",
 ];
 
+type Category = {
+  id: number;
+  name: string;
+  slug: string;
+  parent_id: number | null;
+};
+
 export default function ManageProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +52,21 @@ export default function ManageProductsPage() {
     useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [categoryList, setCategoryList] = useState<Category[]>([]);
+
+  async function loadCategories() {
+    const { data, error } = await db
+      .from("categories")
+      .select("id, name, slug, parent_id")
+      .order("id", { ascending: true });
+
+    if (error) {
+      console.error("Error loading categories:", error);
+      return;
+    }
+
+    setCategoryList(data || []);
+  }
 
   async function loadProducts() {
     setLoading(true);
@@ -65,6 +87,7 @@ export default function ManageProductsPage() {
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
 
   async function deleteProduct(id: string) {
@@ -365,7 +388,8 @@ export default function ManageProductsPage() {
                       fontWeight: "800",
                     }}
                   >
-                    Funko Number: {product.product_number ?? "Not set"}
+                    Funko Number:{" "}
+                    {product.product_number ?? "Not set"}
                   </div>
 
                   <div
@@ -386,7 +410,9 @@ export default function ManageProductsPage() {
                   >
                     {product.is_chase && <span>🎯 Chase</span>}
                     {product.is_vaulted && <span>🔒 Vaulted</span>}
-                    {product.is_exclusive && <span>⭐ Exclusive</span>}
+                    {product.is_exclusive && (
+                      <span>⭐ Exclusive</span>
+                    )}
                     {product.is_offer && <span>🔥 Offer</span>}
                   </div>
 
@@ -616,14 +642,54 @@ export default function ManageProductsPage() {
                   }
                   style={inputStyle}
                 >
-                  {categories.map((category) => (
-                    <option
-                      key={category}
-                      value={category}
-                    >
-                      {category}
-                    </option>
-                  ))}
+                  {categoryList.length > 0
+                    ? categoryList
+                        .filter(
+                          (category) =>
+                            category.parent_id === null
+                        )
+                        .map((parentCategory) => {
+                          const children =
+                            categoryList.filter(
+                              (category) =>
+                                category.parent_id ===
+                                parentCategory.id
+                            );
+
+                          return (
+                            <optgroup
+                              key={parentCategory.id}
+                              label={parentCategory.name}
+                            >
+                              {children.length > 0 ? (
+                                children.map(
+                                  (childCategory) => (
+                                    <option
+                                      key={childCategory.id}
+                                      value={childCategory.name}
+                                    >
+                                      {childCategory.name}
+                                    </option>
+                                  )
+                                )
+                              ) : (
+                                <option
+                                  value={parentCategory.name}
+                                >
+                                  {parentCategory.name}
+                                </option>
+                              )}
+                            </optgroup>
+                          );
+                        })
+                    : fallbackCategories.map((category) => (
+                        <option
+                          key={category}
+                          value={category}
+                        >
+                          {category}
+                        </option>
+                      ))}
                 </select>
               </label>
 

@@ -6,10 +6,10 @@ import { useCart } from "../context/CartContext";
 
 export default function Header() {
   const [wishlistCount, setWishlistCount] = useState(0);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [funkosOpen, setFunkosOpen] = useState(false);
   const { itemCount } = useCart();
 
-  const categories = [
+  const funkoCategories = [
     ["Marvel", "/marvel"],
     ["DC", "/dc"],
     ["Star Wars", "/starwars"],
@@ -146,7 +146,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* NAVIGATION */}
+      {/* MAIN NAVIGATION */}
 
       <div
         style={{
@@ -155,6 +155,8 @@ export default function Header() {
           padding: "0 40px 20px",
           display: "flex",
           justifyContent: "center",
+          position: "relative",
+          zIndex: 20000,
         }}
       >
         <nav
@@ -164,6 +166,8 @@ export default function Header() {
             justifyContent: "center",
           }}
         >
+          {/* HOME */}
+
           <Link href="/" style={navStyle}>
             <span style={{ color: "#ffd21c", fontSize: "20px" }}>
               🏠
@@ -171,67 +175,60 @@ export default function Header() {
             Home
           </Link>
 
-          <Link href="/#latest-arrivals" style={navStyle}>
-            New Arrivals
-          </Link>
+          {/* FUNKOS */}
 
-          <Link href="/#chase" style={navStyle}>
-            Chase
-          </Link>
-
-          <Link href="/#vaulted" style={navStyle}>
-            Vaulted
-          </Link>
-
-          <Link href="/#exclusives" style={navStyle}>
-            Exclusives
-          </Link>
-
-          <Link href="/#offers" style={navStyle}>
-            Offers
-          </Link>
-
-          <div style={{ position: "relative" }}>
+          <div
+            style={{
+              position: "relative",
+              zIndex: 20001,
+            }}
+          >
             <button
               type="button"
-              onClick={() =>
-                setCategoriesOpen(!categoriesOpen)
-              }
+              onClick={() => setFunkosOpen(!funkosOpen)}
               style={{
                 ...navStyle,
                 background: "none",
                 border: "none",
                 cursor: "pointer",
+                color: "#ffffff",
               }}
             >
-              Categories ▼
+              FUNKOS {funkosOpen ? "▲" : "▼"}
             </button>
 
-            {categoriesOpen && (
+            {funkosOpen && (
               <div
                 style={{
                   position: "absolute",
                   top: "100%",
                   left: "50%",
                   transform: "translateX(-50%)",
-                  width: "220px",
+                  width: "260px",
+                  maxHeight: "650px",
+                  overflowY: "auto",
                   background: "#080b10",
                   border: "1px solid #333943",
                   borderRadius: "10px",
                   padding: "8px",
-                  boxShadow:
-                    "0 15px 35px rgba(0,0,0,0.7)",
-                  zIndex: 2000,
+                  boxShadow: "0 15px 35px rgba(0,0,0,0.7)",
+                  zIndex: 20002,
                 }}
               >
-                {categories.map(([label, href]) => (
+                <Link
+                  href="/"
+                  onClick={() => setFunkosOpen(false)}
+                  style={mainCategoryLink}
+                >
+                  ALL FUNKOS
+                </Link>
+
+                {funkoCategories.map(([label, href]) => (
                   <Link
                     key={label}
                     href={href}
-                    onClick={() =>
-                      setCategoriesOpen(false)
-                    }
-                    style={dropdownStyle}
+                    onClick={() => setFunkosOpen(false)}
+                    style={subCategoryStyle}
                   >
                     {label}
                   </Link>
@@ -239,6 +236,24 @@ export default function Header() {
               </div>
             )}
           </div>
+
+          {/* MAIN CATEGORIES */}
+
+          <Link href="/" style={navStyle}>
+            DISNEY
+          </Link>
+
+          <Link href="/" style={navStyle}>
+            CLOTHING
+          </Link>
+
+          <Link href="/" style={navStyle}>
+            LOUNGEFLY
+          </Link>
+
+          <Link href="/" style={navStyle}>
+            CLEARANCE ITEMS
+          </Link>
         </nav>
       </div>
 
@@ -250,7 +265,7 @@ export default function Header() {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 10000,
+          zIndex: 100,
           background: "#05070b",
           borderBottom: "1px solid #252a32",
           padding: "10px 16px",
@@ -280,7 +295,9 @@ export default function Header() {
 
             const params = new URLSearchParams();
 
-            if (search) params.set("search", search);
+            if (search) {
+              params.set("search", search);
+            }
 
             if (sort !== "newest") {
               params.set("sort", sort);
@@ -332,8 +349,12 @@ export default function Header() {
             aria-label="Sort products"
           >
             <option value="newest">Newest</option>
-            <option value="low">Price: Low to High</option>
-            <option value="high">Price: High to Low</option>
+            <option value="low">
+              Price: Low to High
+            </option>
+            <option value="high">
+              Price: High to Low
+            </option>
           </select>
 
           <select
@@ -342,23 +363,37 @@ export default function Header() {
             style={filterControlStyle}
             aria-label="Choose category"
           >
-            <option value="home">All Collections</option>
+            <option value="home">
+              All Collections
+            </option>
             <option value="chase">🎯 Chase</option>
-            <option value="vaulted">🔒 Vaulted</option>
-            <option value="exclusives">⭐ Exclusives</option>
+            <option value="vaulted">
+              🔒 Vaulted
+            </option>
+            <option value="exclusives">
+              ⭐ Exclusives
+            </option>
             <option value="offers">🔥 Offers</option>
             <option value="marvel">Marvel</option>
             <option value="dc">DC</option>
-            <option value="starwars">Star Wars</option>
+            <option value="starwars">
+              Star Wars
+            </option>
             <option value="anime">Anime</option>
-            <option value="television">Television</option>
+            <option value="television">
+              Television
+            </option>
             <option value="disney">Disney</option>
             <option value="games">Games</option>
             <option value="icons">Icons</option>
             <option value="sports">Sports</option>
             <option value="rocks">Rocks</option>
-            <option value="ad-icons">Ad Icons</option>
-            <option value="animation">Animation</option>
+            <option value="ad-icons">
+              Ad Icons
+            </option>
+            <option value="animation">
+              Animation
+            </option>
             <option value="movies">Movies</option>
           </select>
 
@@ -377,7 +412,10 @@ export default function Header() {
             In stock only
           </label>
 
-          <button type="submit" style={filterButtonStyle}>
+          <button
+            type="submit"
+            style={filterButtonStyle}
+          >
             Search
           </button>
         </form>
@@ -422,13 +460,23 @@ const navStyle = {
   gap: "7px",
 };
 
-const dropdownStyle = {
+const mainCategoryLink = {
+  display: "block",
+  color: "#ffd21c",
+  textDecoration: "none",
+  padding: "12px 14px",
+  borderRadius: "6px",
+  fontSize: "16px",
+  fontWeight: "900",
+};
+
+const subCategoryStyle = {
   display: "block",
   color: "#ffffff",
   textDecoration: "none",
-  padding: "11px 14px",
-  borderRadius: "6px",
-  fontSize: "15px",
+  padding: "8px 12px",
+  borderRadius: "5px",
+  fontSize: "14px",
   fontWeight: "700",
 };
 
