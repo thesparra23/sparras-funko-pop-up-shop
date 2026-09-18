@@ -56,7 +56,7 @@ export default function DisneyPage() {
           }}
         >
           <h1 className="section-title">
-            🏰 Disney Pops
+            🏰 Disney
           </h1>
 
           <p
@@ -94,7 +94,7 @@ export default function DisneyPage() {
                 fontWeight: 600,
               }}
             >
-              No Disney Pops available yet.
+              No Disney items available yet.
             </p>
           )}
         </section>
