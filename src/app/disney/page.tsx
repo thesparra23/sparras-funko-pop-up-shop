@@ -56,8 +56,8 @@ export default function DisneyPage() {
           }}
         >
           <h1 className="section-title">
-            🏰 Disney
-          </h1>
+  🏰 <span style={{ color: "#1e3a8a" }}>Disney</span>
+</h1>
 
           <p
             style={{
