@@ -10,6 +10,11 @@ type Product = {
   id: string;
   name: string;
   image: string;
+  image_2?: string | null;
+  image_3?: string | null;
+  image_4?: string | null;
+  image_5?: string | null;
+  image_6?: string | null;
   price: number;
   badge?: string | null;
   stock: number;
@@ -24,7 +29,9 @@ export default function ClothingPage() {
 
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, image, price, badge, stock")
+        .select(
+          "id, name, image, image_2, image_3, image_4, image_5, image_6, price, badge, stock"
+        )
         .eq("category", "Clothing")
         .order("created_at", {
           ascending: false,
@@ -32,6 +39,10 @@ export default function ClothingPage() {
 
       if (!error && data) {
         setProducts(data);
+      }
+
+      if (error) {
+        console.error("Error loading clothing:", error);
       }
     };
 
@@ -49,14 +60,14 @@ export default function ClothingPage() {
             paddingTop: "80px",
             minHeight: "70vh",
             background:
-              "linear-gradient(135deg, #111827 0%, #1f2937 50%, #111827 100%)",
+              "linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.92))",
           }}
         >
           <h1
             className="section-title"
             style={{
               textAlign: "center",
-              color: "#ffffff",
+              marginBottom: "20px",
             }}
           >
             👕 Clothing
@@ -71,7 +82,7 @@ export default function ClothingPage() {
               fontWeight: 600,
             }}
           >
-            Collectible clothing and merchandise from Sparra's Funko Pop Shop.
+            Funko clothing, collectable apparel and more.
           </p>
 
           {products.length > 0 ? (
@@ -82,23 +93,52 @@ export default function ClothingPage() {
                   id={product.id}
                   name={product.name}
                   image={product.image}
+                  image_2={product.image_2}
+                  image_3={product.image_3}
+                  image_4={product.image_4}
+                  image_5={product.image_5}
+                  image_6={product.image_6}
                   price={`£${Number(product.price).toFixed(2)}`}
                   badge={product.badge || "Clothing"}
                 />
               ))}
             </div>
           ) : (
-            <p
+            <div
               style={{
                 textAlign: "center",
+                padding: "70px 20px",
                 color: "#cbd5e1",
-                fontSize: "20px",
-                marginTop: "70px",
-                fontWeight: 600,
               }}
             >
-              No Clothing available yet.
-            </p>
+              <h2
+                style={{
+                  color: "#ffffff",
+                  fontSize: "28px",
+                  marginBottom: "15px",
+                }}
+              >
+                👕 Clothing
+              </h2>
+
+              <p
+                style={{
+                  fontSize: "20px",
+                  fontWeight: 600,
+                }}
+              >
+                No clothing available yet.
+              </p>
+
+              <p
+                style={{
+                  marginTop: "10px",
+                  color: "#94a3b8",
+                }}
+              >
+                Check back soon for new arrivals.
+              </p>
+            </div>
           )}
         </section>
       </main>
