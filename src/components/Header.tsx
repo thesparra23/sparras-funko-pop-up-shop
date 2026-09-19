@@ -18,6 +18,7 @@ export default function Header() {
     ["Television", "/television"],
     ["Games", "/games"],
     ["Disney", "/disney"],
+    ["Disney Funko", "/#disney-funko"],
     ["Icons", "/icons"],
     ["Sports", "/sports"],
     ["Rocks", "/rocks"],
@@ -383,6 +384,9 @@ export default function Header() {
               Television
             </option>
             <option value="disney">Disney</option>
+            <option value="disney-funko">
+              Disney Funko
+            </option>
             <option value="games">Games</option>
             <option value="icons">Icons</option>
             <option value="sports">Sports</option>
