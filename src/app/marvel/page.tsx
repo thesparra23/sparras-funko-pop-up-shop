@@ -53,12 +53,22 @@ export default function MarvelPage() {
     <>
       <Header />
 
-      <main>
+      <main
+        style={{
+          minHeight: "100vh",
+          backgroundImage:
+            'linear-gradient(rgba(5, 8, 15, 0.72), rgba(5, 8, 15, 0.88)), url("/category-backgrounds/funkos-background.png")',
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+          backgroundAttachment: "fixed",
+        }}
+      >
         <section
           className="products-section"
           style={{
             paddingTop: "80px",
             minHeight: "70vh",
+            background: "transparent",
           }}
         >
           <h1
@@ -74,7 +84,7 @@ export default function MarvelPage() {
           <p
             style={{
               textAlign: "center",
-              color: "#94a3b8",
+              color: "#cbd5e1",
               fontSize: "18px",
               marginBottom: "40px",
             }}
@@ -105,7 +115,7 @@ export default function MarvelPage() {
             <p
               style={{
                 textAlign: "center",
-                color: "#94a3b8",
+                color: "#cbd5e1",
                 fontSize: "20px",
                 marginTop: "70px",
                 fontWeight: 600,
