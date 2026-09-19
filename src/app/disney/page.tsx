@@ -80,7 +80,7 @@ export default function DisneyPage() {
           <p
             style={{
               textAlign: "center",
-              color: "#cbd5e1",
+              color: "#0B1F4D",
               fontSize: "18px",
               marginBottom: "40px",
             }}
@@ -112,7 +112,7 @@ export default function DisneyPage() {
             <p
               style={{
                 textAlign: "center",
-                color: "#cbd5e1",
+                color: "#0B1F4D",
                 fontSize: "20px",
                 marginTop: "70px",
                 fontWeight: 600,
