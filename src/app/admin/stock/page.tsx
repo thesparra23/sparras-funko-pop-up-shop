@@ -14,9 +14,27 @@ type Product = {
   description: string | null;
 };
 
+const CATEGORY_LIST = [
+  "Marvel",
+  "Disney",
+  "Rocks",
+  "Sports",
+  "Icons",
+  "Ad Icons",
+  "Animation",
+  "Anime",
+  "Movies",
+  "TV",
+  "Games",
+  "Star Wars",
+  "Clearance",
+  "Clothing",
+  "Loungefly",
+];
+
 export default function StockPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>(CATEGORY_LIST);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -59,57 +77,13 @@ export default function StockPage() {
     setLoading(false);
   }
 
-  async function loadCategories() {
-    if (!supabase) return;
+  function loadCategories() {
+    const categoryNames = new Set<string>(CATEGORY_LIST);
 
-    const categoryNames = new Set<string>();
-
-    /*
-     * Get categories from the categories table.
-     */
-    const { data: categoryData, error: categoryError } =
-      await supabase
-        .from("categories")
-        .select("name")
-        .order("name", { ascending: true });
-
-    if (!categoryError && categoryData) {
-      categoryData.forEach((category) => {
-        if (category.name) {
-          categoryNames.add(category.name);
-        }
-      });
-    }
-
-    /*
-     * Also include any categories currently being used
-     * by products.
-     */
     products.forEach((product) => {
       if (product.category) {
         categoryNames.add(product.category);
       }
-    });
-
-    /*
-     * These are important category choices and should remain
-     * available even if there are currently no products in them.
-     */
-    [
-      "Marvel",
-      "Disney",
-      "Rocks",
-      "Sports",
-      "Icons",
-      "Ad Icons",
-      "Animation",
-      "Anime",
-      "Movies",
-      "TV",
-      "Games",
-      "Star Wars",
-    ].forEach((category) => {
-      categoryNames.add(category);
     });
 
     setCategories(
@@ -124,10 +98,8 @@ export default function StockPage() {
   }, []);
 
   useEffect(() => {
-    if (!loading) {
-      loadCategories();
-    }
-  }, [loading, products]);
+    loadCategories();
+  }, [products]);
 
   function changeStock(id: string, amount: number) {
     setProducts((current) =>
@@ -231,10 +203,14 @@ export default function StockPage() {
 
   function cancelEditing() {
     setEditingId(null);
+    setMessage("");
   }
 
   async function saveProductDetails(product: Product) {
-    if (!supabase) return;
+    if (!supabase) {
+      setMessage("Supabase is not configured.");
+      return;
+    }
 
     if (!editForm.name.trim()) {
       setMessage("❌ Product name cannot be empty.");
@@ -256,16 +232,27 @@ export default function StockPage() {
     setSavingId(product.id);
     setMessage("");
 
+    const newCategory = editForm.category.trim();
+
+    const updateData = {
+      name: editForm.name.trim(),
+      price,
+      description:
+        editForm.description.trim() || null,
+      category: newCategory,
+      badge: editForm.badge.trim() || null,
+    };
+
+    console.log("Saving product category:", {
+      productId: product.id,
+      productName: product.name,
+      oldCategory: product.category,
+      newCategory,
+    });
+
     const { data, error } = await supabase
       .from("products")
-      .update({
-        name: editForm.name.trim(),
-        price,
-        description:
-          editForm.description.trim() || null,
-        category: editForm.category.trim(),
-        badge: editForm.badge.trim() || null,
-      })
+      .update(updateData)
       .eq("id", product.id)
       .select(
         "id, name, image, price, stock, category, badge, description"
@@ -273,10 +260,21 @@ export default function StockPage() {
       .single();
 
     if (error) {
-      console.error(error);
+      console.error("CATEGORY UPDATE ERROR:", error);
+
       setMessage(
-        `Error saving ${product.name}: ${error.message}`
+        `❌ Could not change category for ${product.name}: ${error.message}`
       );
+
+      setSavingId(null);
+      return;
+    }
+
+    if (!data) {
+      setMessage(
+        `❌ The product was not returned after saving.`
+      );
+
       setSavingId(null);
       return;
     }
@@ -288,7 +286,7 @@ export default function StockPage() {
     );
 
     setMessage(
-      `✅ ${data.name} details updated successfully. Category: ${data.category}`
+      `✅ ${data.name} updated successfully. Category is now: ${data.category}`
     );
 
     setSavingId(null);
@@ -314,9 +312,11 @@ export default function StockPage() {
 
     if (error) {
       console.error(error);
+
       setMessage(
         `Error deleting ${product.name}: ${error.message}`
       );
+
       setDeletingId(null);
       return;
     }
@@ -482,8 +482,14 @@ export default function StockPage() {
                       }}
                     >
                       Category:{" "}
-                      {product.category ||
-                        "Uncategorised"}
+                      <strong
+                        style={{
+                          color: "#ffffff",
+                        }}
+                      >
+                        {product.category ||
+                          "Uncategorised"}
+                      </strong>
                     </p>
 
                     <p
@@ -560,17 +566,35 @@ export default function StockPage() {
                         style={editInputStyle}
                       />
 
+                      <label
+                        style={{
+                          fontWeight: "700",
+                          color: "#facc15",
+                          marginTop: "5px",
+                        }}
+                      >
+                        Category
+                      </label>
+
                       <select
                         value={editForm.category}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const newCategory =
+                            e.target.value;
+
                           setEditForm((current) => ({
                             ...current,
-                            category: e.target.value,
-                          }))
-                        }
+                            category: newCategory,
+                          }));
+
+                          setMessage(
+                            `Category selected: ${newCategory}`
+                          );
+                        }}
                         style={{
                           ...editInputStyle,
                           cursor: "pointer",
+                          appearance: "auto",
                         }}
                       >
                         <option
