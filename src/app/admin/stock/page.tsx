@@ -16,12 +16,14 @@ type Product = {
 
 export default function StockPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+
   const [editForm, setEditForm] = useState({
     name: "",
     price: "",
@@ -41,7 +43,9 @@ export default function StockPage() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, image, price, stock, category, badge, description")
+      .select(
+        "id, name, image, price, stock, category, badge, description"
+      )
       .order("name", { ascending: true });
 
     if (error) {
@@ -55,9 +59,75 @@ export default function StockPage() {
     setLoading(false);
   }
 
+  async function loadCategories() {
+    if (!supabase) return;
+
+    const categoryNames = new Set<string>();
+
+    /*
+     * Get categories from the categories table.
+     */
+    const { data: categoryData, error: categoryError } =
+      await supabase
+        .from("categories")
+        .select("name")
+        .order("name", { ascending: true });
+
+    if (!categoryError && categoryData) {
+      categoryData.forEach((category) => {
+        if (category.name) {
+          categoryNames.add(category.name);
+        }
+      });
+    }
+
+    /*
+     * Also include any categories currently being used
+     * by products.
+     */
+    products.forEach((product) => {
+      if (product.category) {
+        categoryNames.add(product.category);
+      }
+    });
+
+    /*
+     * These are important category choices and should remain
+     * available even if there are currently no products in them.
+     */
+    [
+      "Marvel",
+      "Disney",
+      "Rocks",
+      "Sports",
+      "Icons",
+      "Ad Icons",
+      "Animation",
+      "Anime",
+      "Movies",
+      "TV",
+      "Games",
+      "Star Wars",
+    ].forEach((category) => {
+      categoryNames.add(category);
+    });
+
+    setCategories(
+      Array.from(categoryNames).sort((a, b) =>
+        a.localeCompare(b)
+      )
+    );
+  }
+
   useEffect(() => {
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      loadCategories();
+    }
+  }, [loading, products]);
 
   function changeStock(id: string, amount: number) {
     setProducts((current) =>
@@ -105,13 +175,16 @@ export default function StockPage() {
 
     if (error) {
       console.error(error);
-      setMessage(`Error saving ${product.name}: ${error.message}`);
+      setMessage(
+        `Error saving ${product.name}: ${error.message}`
+      );
       setSavingId(null);
       return;
     }
 
     setMessage(
-      successMessage || `✅ Stock updated for ${product.name}`
+      successMessage ||
+        `✅ Stock updated for ${product.name}`
     );
 
     setSavingId(null);
@@ -119,7 +192,9 @@ export default function StockPage() {
 
   async function markSold(product: Product) {
     if (product.stock <= 0) {
-      setMessage(`❌ ${product.name} is already out of stock.`);
+      setMessage(
+        `❌ ${product.name} is already out of stock.`
+      );
       return;
     }
 
@@ -142,6 +217,7 @@ export default function StockPage() {
 
   function startEditing(product: Product) {
     setEditingId(product.id);
+
     setEditForm({
       name: product.name,
       price: String(product.price),
@@ -149,6 +225,7 @@ export default function StockPage() {
       category: product.category || "",
       badge: product.badge || "",
     });
+
     setMessage("");
   }
 
@@ -165,8 +242,14 @@ export default function StockPage() {
     }
 
     const price = Number(editForm.price);
+
     if (!Number.isFinite(price) || price < 0) {
       setMessage("❌ Please enter a valid price.");
+      return;
+    }
+
+    if (!editForm.category.trim()) {
+      setMessage("❌ Please select a category.");
       return;
     }
 
@@ -178,26 +261,36 @@ export default function StockPage() {
       .update({
         name: editForm.name.trim(),
         price,
-        description: editForm.description.trim() || null,
-        category: editForm.category.trim() || null,
+        description:
+          editForm.description.trim() || null,
+        category: editForm.category.trim(),
         badge: editForm.badge.trim() || null,
       })
       .eq("id", product.id)
-      .select("id, name, image, price, stock, category, badge, description")
+      .select(
+        "id, name, image, price, stock, category, badge, description"
+      )
       .single();
 
     if (error) {
       console.error(error);
-      setMessage(`Error saving ${product.name}: ${error.message}`);
+      setMessage(
+        `Error saving ${product.name}: ${error.message}`
+      );
       setSavingId(null);
       return;
     }
 
     setProducts((current) =>
-      current.map((item) => (item.id === product.id ? data : item))
+      current.map((item) =>
+        item.id === product.id ? data : item
+      )
     );
 
-    setMessage(`✅ ${data.name} details updated successfully.`);
+    setMessage(
+      `✅ ${data.name} details updated successfully. Category: ${data.category}`
+    );
+
     setSavingId(null);
     setEditingId(null);
   }
@@ -221,7 +314,9 @@ export default function StockPage() {
 
     if (error) {
       console.error(error);
-      setMessage(`Error deleting ${product.name}: ${error.message}`);
+      setMessage(
+        `Error deleting ${product.name}: ${error.message}`
+      );
       setDeletingId(null);
       return;
     }
@@ -230,12 +325,17 @@ export default function StockPage() {
       current.filter((item) => item.id !== product.id)
     );
 
-    setMessage(`🗑️ ${product.name} deleted successfully.`);
+    setMessage(
+      `🗑️ ${product.name} deleted successfully.`
+    );
+
     setDeletingId(null);
   }
 
   const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(search.toLowerCase())
+    product.name
+      .toLowerCase()
+      .includes(search.toLowerCase())
   );
 
   return (
@@ -327,8 +427,10 @@ export default function StockPage() {
           >
             {filteredProducts.map((product) => {
               const outOfStock = product.stock === 0;
+
               const lowStock =
-                product.stock > 0 && product.stock <= 2;
+                product.stock > 0 &&
+                product.stock <= 2;
 
               return (
                 <div
@@ -379,7 +481,9 @@ export default function StockPage() {
                         color: "#94a3b8",
                       }}
                     >
-                      {product.category || "Uncategorised"}
+                      Category:{" "}
+                      {product.category ||
+                        "Uncategorised"}
                     </p>
 
                     <p
@@ -389,7 +493,8 @@ export default function StockPage() {
                         color: "#facc15",
                       }}
                     >
-                      £{Number(product.price).toFixed(2)}
+                      £
+                      {Number(product.price).toFixed(2)}
                     </p>
 
                     {product.badge && (
@@ -420,7 +525,13 @@ export default function StockPage() {
                         border: "1px solid #475569",
                       }}
                     >
-                      <strong style={{ fontSize: "18px" }}>✏️ Edit Product</strong>
+                      <strong
+                        style={{
+                          fontSize: "18px",
+                        }}
+                      >
+                        ✏️ Edit Product
+                      </strong>
 
                       <input
                         value={editForm.name}
@@ -449,7 +560,7 @@ export default function StockPage() {
                         style={editInputStyle}
                       />
 
-                      <input
+                      <select
                         value={editForm.category}
                         onChange={(e) =>
                           setEditForm((current) => ({
@@ -457,9 +568,34 @@ export default function StockPage() {
                             category: e.target.value,
                           }))
                         }
-                        placeholder="Category"
-                        style={editInputStyle}
-                      />
+                        style={{
+                          ...editInputStyle,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option
+                          value=""
+                          style={{
+                            background: "#0f172a",
+                            color: "#ffffff",
+                          }}
+                        >
+                          Select category
+                        </option>
+
+                        {categories.map((category) => (
+                          <option
+                            key={category}
+                            value={category}
+                            style={{
+                              background: "#0f172a",
+                              color: "#ffffff",
+                            }}
+                          >
+                            {category}
+                          </option>
+                        ))}
+                      </select>
 
                       <input
                         value={editForm.badge}
@@ -478,7 +614,8 @@ export default function StockPage() {
                         onChange={(e) =>
                           setEditForm((current) => ({
                             ...current,
-                            description: e.target.value,
+                            description:
+                              e.target.value,
                           }))
                         }
                         rows={4}
@@ -489,182 +626,217 @@ export default function StockPage() {
                         }}
                       />
 
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "8px",
+                          flexWrap: "wrap",
+                        }}
+                      >
                         <button
                           type="button"
-                          onClick={() => saveProductDetails(product)}
-                          disabled={savingId === product.id}
-                          style={editSaveButtonStyle}
+                          onClick={() =>
+                            saveProductDetails(product)
+                          }
+                          disabled={
+                            savingId === product.id
+                          }
+                          style={
+                            editSaveButtonStyle
+                          }
                         >
-                          {savingId === product.id ? "Saving..." : "💾 SAVE DETAILS"}
+                          {savingId === product.id
+                            ? "Saving..."
+                            : "💾 SAVE DETAILS"}
                         </button>
 
                         <button
                           type="button"
                           onClick={cancelEditing}
-                          disabled={savingId === product.id}
-                          style={editCancelButtonStyle}
+                          disabled={
+                            savingId === product.id
+                          }
+                          style={
+                            editCancelButtonStyle
+                          }
                         >
                           CANCEL
                         </button>
                       </div>
                     </div>
                   ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        changeStock(product.id, -1)
-                      }
-                      style={stockButton}
-                    >
-                      −
-                    </button>
-
-                    <input
-                      type="number"
-                      min="0"
-                      value={product.stock}
-                      onChange={(e) =>
-                        setStockValue(
-                          product.id,
-                          e.target.value
-                        )
-                      }
+                    <div
                       style={{
-                        width: "70px",
-                        padding: "10px",
-                        textAlign: "center",
-                        borderRadius: "8px",
-                        border: "1px solid #475569",
-                        background: "#1e293b",
-                        color: "#ffffff",
-                        fontSize: "18px",
-                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
                       }}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        changeStock(product.id, 1)
-                      }
-                      style={stockButton}
                     >
-                      +
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          changeStock(
+                            product.id,
+                            -1
+                          )
+                        }
+                        style={stockButton}
+                      >
+                        −
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => saveStock(product)}
-                      disabled={savingId === product.id}
-                      style={{
-                        background:
+                      <input
+                        type="number"
+                        min="0"
+                        value={product.stock}
+                        onChange={(e) =>
+                          setStockValue(
+                            product.id,
+                            e.target.value
+                          )
+                        }
+                        style={{
+                          width: "70px",
+                          padding: "10px",
+                          textAlign: "center",
+                          borderRadius: "8px",
+                          border:
+                            "1px solid #475569",
+                          background: "#1e293b",
+                          color: "#ffffff",
+                          fontSize: "18px",
+                          fontWeight: "700",
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          changeStock(
+                            product.id,
+                            1
+                          )
+                        }
+                        style={stockButton}
+                      >
+                        +
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveStock(product)
+                        }
+                        disabled={
                           savingId === product.id
-                            ? "#64748b"
-                            : "#facc15",
-                        color: "#111827",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "11px 18px",
-                        fontWeight: "800",
-                        cursor:
-                          savingId === product.id
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      {savingId === product.id
-                        ? "Saving..."
-                        : "Save"}
-                    </button>
+                        }
+                        style={{
+                          background:
+                            savingId === product.id
+                              ? "#64748b"
+                              : "#facc15",
+                          color: "#111827",
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "11px 18px",
+                          fontWeight: "800",
+                          cursor:
+                            savingId === product.id
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                      >
+                        {savingId === product.id
+                          ? "Saving..."
+                          : "Save"}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => markSold(product)}
-                      disabled={
-                        savingId === product.id ||
-                        product.stock === 0
-                      }
-                      style={{
-                        background:
+                      <button
+                        type="button"
+                        onClick={() =>
+                          markSold(product)
+                        }
+                        disabled={
+                          savingId === product.id ||
                           product.stock === 0
-                            ? "#374151"
-                            : "#22c55e",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "11px 18px",
-                        fontWeight: "800",
-                        cursor:
-                          product.stock === 0
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      ✓ SOLD
-                    </button>
-                    
-                    <button
-                      type="button"
-                      onClick={() => deleteProduct(product)}
-                      disabled={
-                        savingId === product.id ||
-                        deletingId === product.id
-                      }
-                      style={{
-                        background:
-                          deletingId === product.id
-                            ? "#64748b"
-                            : "#ef4444",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "11px 18px",
-                        fontWeight: "800",
-                        cursor:
+                        }
+                        style={{
+                          background:
+                            product.stock === 0
+                              ? "#374151"
+                              : "#22c55e",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "11px 18px",
+                          fontWeight: "800",
+                          cursor:
+                            product.stock === 0
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                      >
+                        ✓ SOLD
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteProduct(product)
+                        }
+                        disabled={
                           savingId === product.id ||
                           deletingId === product.id
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      {deletingId === product.id
-                        ? "Deleting..."
-                        : "🗑️ DELETE"}
-                    </button>
+                        }
+                        style={{
+                          background:
+                            deletingId === product.id
+                              ? "#64748b"
+                              : "#ef4444",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "11px 18px",
+                          fontWeight: "800",
+                          cursor:
+                            savingId === product.id ||
+                            deletingId === product.id
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                      >
+                        {deletingId === product.id
+                          ? "Deleting..."
+                          : "🗑️ DELETE"}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => startEditing(product)}
-                      disabled={
-                        savingId === product.id ||
-                        deletingId === product.id
-                      }
-                      style={{
-                        background: "#3b82f6",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "11px 18px",
-                        fontWeight: "800",
-                        cursor:
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startEditing(product)
+                        }
+                        disabled={
                           savingId === product.id ||
                           deletingId === product.id
-                            ? "not-allowed"
-                            : "pointer",
-                      }}
-                    >
-                      ✏️ EDIT
-                    </button>
-                  </div>
+                        }
+                        style={{
+                          background: "#3b82f6",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "11px 18px",
+                          fontWeight: "800",
+                          cursor:
+                            savingId === product.id ||
+                            deletingId === product.id
+                              ? "not-allowed"
+                              : "pointer",
+                        }}
+                      >
+                        ✏️ EDIT
+                      </button>
+                    </div>
                   )}
 
                   <div
@@ -706,7 +878,6 @@ const stockButton = {
   fontWeight: "700",
   cursor: "pointer",
 };
-
 
 const editInputStyle = {
   width: "100%",
