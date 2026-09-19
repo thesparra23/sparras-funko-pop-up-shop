@@ -39,7 +39,7 @@ const categories = [
   { value: "anime", label: "Anime" },
   { value: "television", label: "Television" },
   { value: "disney", label: "Disney" },
-  { value: "disney-funko", label: "Disney Funko" },
+  { value: "disney-funko", label: "Disney Funkos" },
   { value: "games", label: "Games" },
   { value: "icons", label: "Icons" },
   { value: "sports", label: "Sports" },
@@ -284,7 +284,7 @@ export default function Home() {
       return products.filter(
         (product) =>
           product.category?.toLowerCase() ===
-          "disney funko"
+          "disney funkos"
       );
     }
 

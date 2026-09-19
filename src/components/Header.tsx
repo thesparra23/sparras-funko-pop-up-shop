@@ -6,6 +6,7 @@ import { useCart } from "../context/CartContext";
 
 export default function Header() {
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [funkosOpen, setFunkosOpen] = useState(false);
   const { itemCount } = useCart();
 
@@ -17,13 +18,19 @@ export default function Header() {
     ["Movies", "/movies"],
     ["Television", "/television"],
     ["Games", "/games"],
-    ["Disney", "/disney"],
-    ["Disney Funko", "/#disney-funko"],
+    ["Disney Funkos", "/#disney-funko"],
     ["Icons", "/icons"],
     ["Sports", "/sports"],
     ["Rocks", "/rocks"],
     ["Ad Icons", "/ad-icons"],
     ["Animation", "/animation"],
+  ];
+
+  const mainCategories = [
+    ["DISNEY", "/disney"],
+    ["CLOTHING", "/"],
+    ["LOUNGEFLY", "/"],
+    ["CLEARANCE ITEMS", "/"],
   ];
 
   return (
@@ -147,7 +154,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* MAIN NAVIGATION */}
+      {/* NAVIGATION */}
 
       <div
         style={{
@@ -156,8 +163,6 @@ export default function Header() {
           padding: "0 40px 20px",
           display: "flex",
           justifyContent: "center",
-          position: "relative",
-          zIndex: 20000,
         }}
       >
         <nav
@@ -167,8 +172,6 @@ export default function Header() {
             justifyContent: "center",
           }}
         >
-          {/* HOME */}
-
           <Link href="/" style={navStyle}>
             <span style={{ color: "#ffd21c", fontSize: "20px" }}>
               🏠
@@ -176,34 +179,51 @@ export default function Header() {
             Home
           </Link>
 
-          {/* FUNKOS */}
+          <Link href="/#latest-arrivals" style={navStyle}>
+            New Arrivals
+          </Link>
 
-          <div
-            style={{
-              position: "relative",
-              zIndex: 20001,
-            }}
-          >
+          <Link href="/#chase" style={navStyle}>
+            Chase
+          </Link>
+
+          <Link href="/#vaulted" style={navStyle}>
+            Vaulted
+          </Link>
+
+          <Link href="/#exclusives" style={navStyle}>
+            Exclusives
+          </Link>
+
+          <Link href="/#offers" style={navStyle}>
+            Offers
+          </Link>
+
+          {/* CATEGORIES */}
+
+          <div style={{ position: "relative" }}>
             <button
               type="button"
-              onClick={() => setFunkosOpen(!funkosOpen)}
+              onClick={() =>
+                setCategoriesOpen(!categoriesOpen)
+              }
               style={{
                 ...navStyle,
                 background: "none",
                 border: "none",
                 cursor: "pointer",
-                color: "#ffffff",
               }}
             >
-              FUNKOS {funkosOpen ? "▲" : "▼"}
+              Categories ▼
             </button>
 
-            {funkosOpen && (
+            {categoriesOpen && (
               <div
                 style={{
                   position: "absolute",
                   top: "100%",
-                  left: "0",
+                  left: "50%",
+                  transform: "translateX(-50%)",
                   width: "260px",
                   maxHeight: "650px",
                   overflowY: "auto",
@@ -211,49 +231,69 @@ export default function Header() {
                   border: "1px solid #333943",
                   borderRadius: "10px",
                   padding: "8px",
-                  boxShadow: "0 15px 35px rgba(0,0,0,0.7)",
-                  zIndex: 20002,
+                  boxShadow:
+                    "0 15px 35px rgba(0,0,0,0.7)",
+                  zIndex: 2000,
                 }}
               >
-                <Link
-                  href="/"
-                  onClick={() => setFunkosOpen(false)}
-                  style={mainCategoryLink}
-                >
-                  ALL FUNKOS
-                </Link>
+                {/* FUNKOS */}
 
-                {funkoCategories.map(([label, href]) => (
-                  <Link
-                    key={label}
-                    href={href}
-                    onClick={() => setFunkosOpen(false)}
-                    style={subCategoryStyle}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFunkosOpen(!funkosOpen)
+                  }
+                  style={mainCategoryButton}
+                >
+                  <span>FUNKOS</span>
+                  <span>{funkosOpen ? "▲" : "▼"}</span>
+                </button>
+
+                {funkosOpen && (
+                  <div
+                    style={{
+                      marginLeft: "8px",
+                      marginBottom: "6px",
+                      borderLeft: "2px solid #ffd21c",
+                      paddingLeft: "6px",
+                    }}
                   >
-                    {label}
-                  </Link>
-                ))}
+                    {funkoCategories.map(
+                      ([label, href]) => (
+                        <Link
+                          key={label}
+                          href={href}
+                          onClick={() =>
+                            setCategoriesOpen(false)
+                          }
+                          style={subCategoryStyle}
+                        >
+                          {label}
+                        </Link>
+                      )
+                    )}
+                  </div>
+                )}
+
+                {/* OTHER MAIN CATEGORIES */}
+
+                {mainCategories.map(
+                  ([label, href]) => (
+                    <Link
+                      key={label}
+                      href={href}
+                      onClick={() =>
+                        setCategoriesOpen(false)
+                      }
+                      style={mainCategoryLink}
+                    >
+                      {label}
+                    </Link>
+                  )
+                )}
               </div>
             )}
           </div>
-
-          {/* MAIN CATEGORIES */}
-
-          <Link href="/disney" style={navStyle}>
-            DISNEY
-          </Link>
-
-          <Link href="/clothing#shop" style={navStyle}>
-            CLOTHING
-          </Link>
-
-          <Link href="/loungefly#shop" style={navStyle}>
-            LOUNGEFLY
-          </Link>
-
-          <Link href="/clearance#shop" style={navStyle}>
-            CLEARANCE ITEMS
-          </Link>
         </nav>
       </div>
 
@@ -265,7 +305,7 @@ export default function Header() {
           top: 0,
           left: 0,
           right: 0,
-          zIndex: 100,
+          zIndex: 10000,
           background: "#05070b",
           borderBottom: "1px solid #252a32",
           padding: "10px 16px",
@@ -384,9 +424,6 @@ export default function Header() {
               Television
             </option>
             <option value="disney">Disney</option>
-            <option value="disney-funko">
-              Disney Funko
-            </option>
             <option value="games">Games</option>
             <option value="icons">Icons</option>
             <option value="sports">Sports</option>
@@ -463,9 +500,25 @@ const navStyle = {
   gap: "7px",
 };
 
+const mainCategoryButton = {
+  width: "100%",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  color: "#ffd21c",
+  background: "transparent",
+  border: "none",
+  padding: "12px 14px",
+  borderRadius: "6px",
+  fontSize: "16px",
+  fontWeight: "900",
+  cursor: "pointer",
+  textAlign: "left" as const,
+};
+
 const mainCategoryLink = {
   display: "block",
-  color: "#ffd21c",
+  color: "#ffffff",
   textDecoration: "none",
   padding: "12px 14px",
   borderRadius: "6px",
