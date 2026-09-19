@@ -20,7 +20,7 @@ type Product = {
   stock: number;
 };
 
-export default function IconsPage() {
+export default function AdIconsPage() {
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -32,17 +32,18 @@ export default function IconsPage() {
         .select(
           "id, name, image, image_2, image_3, image_4, image_5, image_6, price, badge, stock"
         )
-        .eq("category", "Icons")
+        .eq("category", "Ad Icons")
         .order("created_at", {
           ascending: false,
         });
 
-      if (!error && data) {
-        setProducts(data);
+      if (error) {
+        console.error("Error loading Ad Icons:", error);
+        return;
       }
 
-      if (error) {
-        console.error("Error loading Icons:", error);
+      if (data) {
+        setProducts(data);
       }
     };
 
@@ -53,17 +54,22 @@ export default function IconsPage() {
     <>
       <Header />
 
-      <main>
+      <main
+        style={{
+          minHeight: "100vh",
+          backgroundImage:
+            'linear-gradient(rgba(5, 8, 15, 0.72), rgba(5, 8, 15, 0.88)), url("/category-backgrounds/funkos-background.png")',
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+          backgroundAttachment: "fixed",
+        }}
+      >
         <section
           className="products-section"
           style={{
             paddingTop: "80px",
             minHeight: "70vh",
-            backgroundImage:
-              "linear-gradient(rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.82)), url('/category-backgrounds/funko-background.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundAttachment: "fixed",
+            background: "transparent",
           }}
         >
           <h1
@@ -73,19 +79,19 @@ export default function IconsPage() {
               marginBottom: "20px",
             }}
           >
-            ⭐ Icons
+            ⭐ Ad Icons
           </h1>
 
           <p
             style={{
               textAlign: "center",
-              color: "#94a3b8",
+              color: "#cbd5e1",
               fontSize: "20px",
               marginBottom: "50px",
             }}
           >
-            Legendary people, characters and iconic
-            collectibles.
+            Advertising legends, brands and iconic
+            promotional characters.
           </p>
 
           {products.length > 0 ? (
@@ -102,7 +108,7 @@ export default function IconsPage() {
                   image_5={product.image_5}
                   image_6={product.image_6}
                   price={`£${Number(product.price).toFixed(2)}`}
-                  badge={product.badge || "Icons"}
+                  badge={product.badge || "Ad Icons"}
                   stock={product.stock}
                 />
               ))}
@@ -111,12 +117,13 @@ export default function IconsPage() {
             <p
               style={{
                 textAlign: "center",
-                color: "#94a3b8",
+                color: "#cbd5e1",
                 fontSize: "20px",
                 marginTop: "70px",
+                fontWeight: 600,
               }}
             >
-              No Icon Pops available yet.
+              No Ad Icons available yet.
             </p>
           )}
         </section>
