@@ -18,36 +18,112 @@ type Product = {
   price: number;
   badge?: string | null;
   stock: number;
+  category?: string | null;
+};
+
+type Category = {
+  id: number;
+  name: string;
+  parent_id: number | null;
 };
 
 export default function ClearancePage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadProducts = async () => {
-      if (!supabase) return;
-
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          "id, name, image, image_2, image_3, image_4, image_5, image_6, price, badge, stock"
-        )
-        .eq("category", "Clearance")
-        .order("created_at", {
-          ascending: false,
-        });
-
-      if (!error && data) {
-        setProducts(data);
+      if (!supabase) {
+        setLoading(false);
+        return;
       }
 
-      if (error) {
-        console.error("Error loading clearance items:", error);
+      try {
+        const { data: clearanceCategory, error: clearanceError } =
+          await supabase
+            .from("categories")
+            .select("id, name, parent_id")
+            .eq("name", "Clearance")
+            .is("parent_id", null)
+            .maybeSingle();
+
+        if (clearanceError) {
+          console.error(
+            "Error loading Clearance category:",
+            clearanceError
+          );
+        }
+
+        let clearanceCategories: Category[] = [];
+
+        if (clearanceCategory) {
+          const { data: childCategories, error: childError } =
+            await supabase
+              .from("categories")
+              .select("id, name, parent_id")
+              .eq("parent_id", clearanceCategory.id)
+              .order("name", {
+                ascending: true,
+              });
+
+          if (childError) {
+            console.error(
+              "Error loading Clearance subcategories:",
+              childError
+            );
+          }
+
+          clearanceCategories = childCategories || [];
+        }
+
+        setCategories(clearanceCategories);
+
+        const categoryNames = [
+          "Clearance",
+          ...clearanceCategories.map(
+            (category) => category.name
+          ),
+        ];
+
+        const { data, error } = await supabase
+          .from("products")
+          .select(
+            "id, name, image, image_2, image_3, image_4, image_5, image_6, price, badge, stock, category"
+          )
+          .in("category", categoryNames)
+          .order("created_at", {
+            ascending: false,
+          });
+
+        if (error) {
+          console.error(
+            "Error loading clearance products:",
+            error
+          );
+          setProducts([]);
+        } else {
+          setProducts(data || []);
+        }
+      } catch (error) {
+        console.error(
+          "Unexpected error loading Clearance:",
+          error
+        );
+        setProducts([]);
+      } finally {
+        setLoading(false);
       }
     };
 
     loadProducts();
   }, []);
+
+  const getProductsForCategory = (categoryName: string) => {
+    return products.filter(
+      (product) => product.category === categoryName
+    );
+  };
 
   return (
     <>
@@ -88,23 +164,114 @@ export default function ClearancePage() {
             Great prices on selected items.
           </p>
 
-          {products.length > 0 ? (
-            <div className="figure-grid">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  id={product.id}
-                  name={product.name}
-                  image={product.image}
-                  image_2={product.image_2}
-                  image_3={product.image_3}
-                  image_4={product.image_4}
-                  image_5={product.image_5}
-                  image_6={product.image_6}
-                  price={`£${Number(product.price).toFixed(2)}`}
-                  badge={product.badge || "Clearance"}
-                />
-              ))}
+          {loading ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "70px 20px",
+                color: "#cbd5e1",
+                fontSize: "20px",
+                fontWeight: 600,
+              }}
+            >
+              Loading clearance items...
+            </div>
+          ) : products.length > 0 ? (
+            <div>
+              {getProductsForCategory("Clearance").length > 0 && (
+                <section
+                  style={{
+                    marginBottom: "55px",
+                  }}
+                >
+                  <h2
+                    style={{
+                      textAlign: "center",
+                      color: "#ffffff",
+                      fontSize: "30px",
+                      marginBottom: "25px",
+                    }}
+                  >
+                    Clearance
+                  </h2>
+
+                  <div className="figure-grid">
+                    {getProductsForCategory("Clearance").map(
+                      (product) => (
+                        <ProductCard
+                          key={product.id}
+                          id={product.id}
+                          name={product.name}
+                          image={product.image}
+                          image_2={product.image_2}
+                          image_3={product.image_3}
+                          image_4={product.image_4}
+                          image_5={product.image_5}
+                          image_6={product.image_6}
+                          price={`£${Number(
+                            product.price
+                          ).toFixed(2)}`}
+                          badge={
+                            product.badge || "Clearance"
+                          }
+                        />
+                      )
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {categories.map((category) => {
+                const categoryProducts =
+                  getProductsForCategory(category.name);
+
+                if (categoryProducts.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <section
+                    key={category.id}
+                    style={{
+                      marginBottom: "55px",
+                    }}
+                  >
+                    <h2
+                      style={{
+                        textAlign: "center",
+                        color: "#ffffff",
+                        fontSize: "30px",
+                        marginBottom: "25px",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {category.name}
+                    </h2>
+
+                    <div className="figure-grid">
+                      {categoryProducts.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          id={product.id}
+                          name={product.name}
+                          image={product.image}
+                          image_2={product.image_2}
+                          image_3={product.image_3}
+                          image_4={product.image_4}
+                          image_5={product.image_5}
+                          image_6={product.image_6}
+                          price={`£${Number(
+                            product.price
+                          ).toFixed(2)}`}
+                          badge={
+                            product.badge || category.name
+                          }
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           ) : (
             <div
