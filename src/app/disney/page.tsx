@@ -71,9 +71,10 @@ export default function DisneyPage() {
             style={{
               textAlign: "center",
               marginBottom: "20px",
+              color: "#0B1F4D",
             }}
           >
-            🏰 Disney Pops
+            🏰 Disney
           </h1>
 
           <p
