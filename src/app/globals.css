@@ -216,6 +216,11 @@ button {
   max-width: 1500px;
   margin: auto;
   padding: 60px 40px 80px;
+  background-image: url("/category-backgrounds/funkos-background.png");
+  background-size: cover;
+  background-position: top center;
+  background-repeat: repeat-y;
+  background-attachment: fixed;
 }
 
 .section-title {
@@ -800,7 +805,9 @@ footer p + p {
     width: 100%;
   }
 }
+
 /* CHECKOUT SUCCESS PAGE TEXT FIX */
+
 main[style*="f8fafc"] {
   color: #111827;
 }
@@ -811,6 +818,7 @@ main[style*="f8fafc"] strong,
 main[style*="f8fafc"] div {
   color: inherit;
 }
+
 /* EXTRA MOBILE FIXES */
 
 @media (max-width: 600px) {
@@ -898,6 +906,7 @@ main[style*="f8fafc"] div {
     padding: 20px;
   }
 }
+
 @media (max-width: 600px) {
   .header-logo-area {
     min-height: 190px !important;

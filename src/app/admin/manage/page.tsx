@@ -8,7 +8,6 @@ const db = supabase!;
 type Product = {
   id: string;
   name: string;
-  product_number: number | null;
   image: string | null;
   price: number;
   stock: number;
@@ -21,7 +20,7 @@ type Product = {
   is_offer: boolean;
 };
 
-const fallbackCategories = [
+const categories = [
   "Marvel",
   "DC",
   "Star Wars",
@@ -30,19 +29,13 @@ const fallbackCategories = [
   "Television",
   "Games",
   "Disney",
+  "Disney Funko",
   "Icons",
   "Sports",
   "Rocks",
   "Ad Icons",
   "Animation",
 ];
-
-type Category = {
-  id: number;
-  name: string;
-  slug: string;
-  parent_id: number | null;
-};
 
 export default function ManageProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -52,21 +45,6 @@ export default function ManageProductsPage() {
     useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [categoryList, setCategoryList] = useState<Category[]>([]);
-
-  async function loadCategories() {
-    const { data, error } = await db
-      .from("categories")
-      .select("id, name, slug, parent_id")
-      .order("id", { ascending: true });
-
-    if (error) {
-      console.error("Error loading categories:", error);
-      return;
-    }
-
-    setCategoryList(data || []);
-  }
 
   async function loadProducts() {
     setLoading(true);
@@ -87,7 +65,6 @@ export default function ManageProductsPage() {
 
   useEffect(() => {
     loadProducts();
-    loadCategories();
   }, []);
 
   async function deleteProduct(id: string) {
@@ -128,12 +105,6 @@ export default function ManageProductsPage() {
       .from("products")
       .update({
         name: editingProduct.name,
-        product_number:
-          editingProduct.product_number === null ||
-          editingProduct.product_number === undefined ||
-          Number.isNaN(Number(editingProduct.product_number))
-            ? null
-            : Number(editingProduct.product_number),
         image: editingProduct.image,
         price: Number(editingProduct.price),
         stock: Number(editingProduct.stock),
@@ -383,17 +354,6 @@ export default function ManageProductsPage() {
 
                   <div
                     style={{
-                      color: "#facc15",
-                      marginBottom: "8px",
-                      fontWeight: "800",
-                    }}
-                  >
-                    Funko Number:{" "}
-                    {product.product_number ?? "Not set"}
-                  </div>
-
-                  <div
-                    style={{
                       color: "#94a3b8",
                       marginBottom: "12px",
                     }}
@@ -410,9 +370,7 @@ export default function ManageProductsPage() {
                   >
                     {product.is_chase && <span>🎯 Chase</span>}
                     {product.is_vaulted && <span>🔒 Vaulted</span>}
-                    {product.is_exclusive && (
-                      <span>⭐ Exclusive</span>
-                    )}
+                    {product.is_exclusive && <span>⭐ Exclusive</span>}
                     {product.is_offer && <span>🔥 Offer</span>}
                   </div>
 
@@ -573,28 +531,6 @@ export default function ManageProductsPage() {
               )}
 
               <label>
-                Funko Product Number
-
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={editingProduct.product_number ?? ""}
-                  onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      product_number:
-                        e.target.value === ""
-                          ? null
-                          : Number(e.target.value),
-                    })
-                  }
-                  placeholder="e.g. 123"
-                  style={inputStyle}
-                />
-              </label>
-
-              <label>
                 Price (£)
 
                 <input
@@ -642,54 +578,14 @@ export default function ManageProductsPage() {
                   }
                   style={inputStyle}
                 >
-                  {categoryList.length > 0
-                    ? categoryList
-                        .filter(
-                          (category) =>
-                            category.parent_id === null
-                        )
-                        .map((parentCategory) => {
-                          const children =
-                            categoryList.filter(
-                              (category) =>
-                                category.parent_id ===
-                                parentCategory.id
-                            );
-
-                          return (
-                            <optgroup
-                              key={parentCategory.id}
-                              label={parentCategory.name}
-                            >
-                              {children.length > 0 ? (
-                                children.map(
-                                  (childCategory) => (
-                                    <option
-                                      key={childCategory.id}
-                                      value={childCategory.name}
-                                    >
-                                      {childCategory.name}
-                                    </option>
-                                  )
-                                )
-                              ) : (
-                                <option
-                                  value={parentCategory.name}
-                                >
-                                  {parentCategory.name}
-                                </option>
-                              )}
-                            </optgroup>
-                          );
-                        })
-                    : fallbackCategories.map((category) => (
-                        <option
-                          key={category}
-                          value={category}
-                        >
-                          {category}
-                        </option>
-                      ))}
+                  {categories.map((category) => (
+                    <option
+                      key={category}
+                      value={category}
+                    >
+                      {category}
+                    </option>
+                  ))}
                 </select>
               </label>
 

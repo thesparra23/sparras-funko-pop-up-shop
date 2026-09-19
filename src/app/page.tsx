@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import Header from "../components/Header";
 import Hero from "../components/Hero";
 import Footer from "../components/Footer";
@@ -17,7 +18,6 @@ type Product = {
   image_5?: string | null;
   image_6?: string | null;
   price: number;
-  product_number?: number | null;
   badge?: string | null;
   stock: number;
   category?: string | null;
@@ -39,6 +39,7 @@ const categories = [
   { value: "anime", label: "Anime" },
   { value: "television", label: "Television" },
   { value: "disney", label: "Disney" },
+  { value: "disney-funko", label: "Disney Funko" },
   { value: "games", label: "Games" },
   { value: "icons", label: "Icons" },
   { value: "sports", label: "Sports" },
@@ -89,6 +90,7 @@ export default function Home() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
     setSearch(params.get("search") || "");
     setSort(params.get("sort") || "newest");
     setInStockOnly(params.get("stock") === "1");
@@ -111,7 +113,6 @@ export default function Home() {
           image_5,
           image_6,
           price,
-          product_number,
           badge,
           stock,
           category,
@@ -156,6 +157,7 @@ export default function Home() {
         "anime",
         "television",
         "disney",
+        "disney-funko",
         "games",
         "icons",
         "sports",
@@ -189,7 +191,9 @@ export default function Home() {
 
   function selectCategory(value: string) {
     setCategory(value);
-    window.location.hash = value === "home" ? "" : value;
+
+    window.location.hash =
+      value === "home" ? "" : value;
 
     setTimeout(() => {
       document.getElementById("shop")?.scrollIntoView({
@@ -276,6 +280,14 @@ export default function Home() {
       );
     }
 
+    if (category === "disney-funko") {
+      return products.filter(
+        (product) =>
+          product.category?.toLowerCase() ===
+          "disney funko"
+      );
+    }
+
     if (category === "games") {
       return products.filter(
         (product) =>
@@ -335,26 +347,13 @@ export default function Home() {
     return products;
   };
 
-  const searchTerm = search.trim().toLowerCase();
-
   const filteredProducts =
-    (searchTerm ? products : getCategoryProducts())
-      .filter((product) => {
-        if (!searchTerm) return true;
-
-        const nameMatches = product.name
+    getCategoryProducts()
+      .filter((product) =>
+        product.name
           .toLowerCase()
-          .includes(searchTerm);
-
-        const numberMatches =
-          product.product_number !== null &&
-          product.product_number !== undefined &&
-          String(product.product_number).includes(
-            searchTerm
-          );
-
-        return nameMatches || numberMatches;
-      })
+          .includes(search.toLowerCase())
+      )
       .filter((product) =>
         inStockOnly ? product.stock > 0 : true
       )
@@ -396,7 +395,9 @@ export default function Home() {
       : category === "television"
       ? "📺 Television Pops"
       : category === "disney"
-      ? "🏰 Disney Pops"
+      ? "🏰 Disney"
+      : category === "disney-funko"
+      ? "🎀 Disney Funko Pops"
       : category === "games"
       ? "🎮 Games Pops"
       : category === "icons"
@@ -449,7 +450,14 @@ export default function Home() {
           className="products-section"
           id="shop"
         >
-          <h2 className="section-title">
+          <h2
+            className="section-title"
+            style={
+              category === "disney"
+                ? { color: "#0B1F4D" }
+                : undefined
+            }
+          >
             {categoryTitle}
           </h2>
 
@@ -591,7 +599,9 @@ export default function Home() {
               <div className="collection-grid">
                 <div
                   className="collection marvel"
-                  onClick={() => selectCategory("marvel")}
+                  onClick={() =>
+                    selectCategory("marvel")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -605,7 +615,9 @@ export default function Home() {
 
                 <div
                   className="collection dc"
-                  onClick={() => selectCategory("dc")}
+                  onClick={() =>
+                    selectCategory("dc")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -621,7 +633,9 @@ export default function Home() {
 
                 <div
                   className="collection starwars"
-                  onClick={() => selectCategory("starwars")}
+                  onClick={() =>
+                    selectCategory("starwars")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -635,7 +649,9 @@ export default function Home() {
 
                 <div
                   className="collection anime"
-                  onClick={() => selectCategory("anime")}
+                  onClick={() =>
+                    selectCategory("anime")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -649,7 +665,9 @@ export default function Home() {
 
                 <div
                   className="collection disney"
-                  onClick={() => selectCategory("disney")}
+                  onClick={() =>
+                    selectCategory("disney")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -662,8 +680,26 @@ export default function Home() {
                 </div>
 
                 <div
+                  className="collection disney"
+                  onClick={() =>
+                    selectCategory("disney-funko")
+                  }
+                  style={{
+                    cursor: "pointer",
+                  }}
+                >
+                  <h2>Disney Funko</h2>
+                  <p>
+                    Disney Funko Pops,
+                    characters and collectibles.
+                  </p>
+                </div>
+
+                <div
                   className="collection television"
-                  onClick={() => selectCategory("television")}
+                  onClick={() =>
+                    selectCategory("television")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -677,7 +713,9 @@ export default function Home() {
 
                 <div
                   className="collection games"
-                  onClick={() => selectCategory("games")}
+                  onClick={() =>
+                    selectCategory("games")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -691,7 +729,9 @@ export default function Home() {
 
                 <div
                   className="collection icons"
-                  onClick={() => selectCategory("icons")}
+                  onClick={() =>
+                    selectCategory("icons")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -705,7 +745,9 @@ export default function Home() {
 
                 <div
                   className="collection sports"
-                  onClick={() => selectCategory("sports")}
+                  onClick={() =>
+                    selectCategory("sports")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -719,7 +761,9 @@ export default function Home() {
 
                 <div
                   className="collection rocks"
-                  onClick={() => selectCategory("rocks")}
+                  onClick={() =>
+                    selectCategory("rocks")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -733,7 +777,9 @@ export default function Home() {
 
                 <div
                   className="collection ad-icons"
-                  onClick={() => selectCategory("ad-icons")}
+                  onClick={() =>
+                    selectCategory("ad-icons")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -747,7 +793,9 @@ export default function Home() {
 
                 <div
                   className="collection animation"
-                  onClick={() => selectCategory("animation")}
+                  onClick={() =>
+                    selectCategory("animation")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -761,7 +809,9 @@ export default function Home() {
 
                 <div
                   className="collection movies"
-                  onClick={() => selectCategory("movies")}
+                  onClick={() =>
+                    selectCategory("movies")
+                  }
                   style={{
                     cursor: "pointer",
                   }}
@@ -778,134 +828,155 @@ export default function Home() {
         )}
       </main>
 
+      <div
+        className="shop-sticky-filters"
+        style={{
+          position: "fixed",
+          top: "0",
+          zIndex: 9999,
+          left: 0,
+          width: "100%",
+          background: "#0f172a",
+          padding: "14px 10px 16px",
+          borderBottom: "1px solid #334155",
+        }}
+      >
         <div
-          className="shop-sticky-filters"
           style={{
-            position: "relative",
-            top: "0",
-            zIndex: 9999,
-            left: 0,
-            width: "100%",
-            background: "#0f172a",
-            padding: "14px 10px 16px",
-            borderBottom: "1px solid #334155",
+            display: "flex",
+            gap: "10px",
+            justifyContent: "center",
+            alignItems: "center",
+            flexWrap: "wrap",
           }}
         >
-            <div
+          <input
+            type="text"
+            placeholder="🔎 Search Funko Pops..."
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+            style={{
+              width: "300px",
+              maxWidth: "90vw",
+              padding: "13px 16px",
+              borderRadius: "12px",
+              border: "1px solid #475569",
+              background: "#1e293b",
+              color: "#ffffff",
+              fontSize: "16px",
+              outline: "none",
+            }}
+          />
+
+          <select
+            value={category}
+            onChange={(e) =>
+              selectCategory(e.target.value)
+            }
+            style={{
+              padding: "13px 16px",
+              borderRadius: "12px",
+              border: "1px solid #475569",
+              background: "#1e293b",
+              color: "#ffffff",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+          >
+            {categories.map((item) => (
+              <option
+                key={item.value}
+                value={item.value}
+              >
+                {item.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={sort}
+            onChange={(e) =>
+              setSort(e.target.value)
+            }
+            style={{
+              padding: "13px 16px",
+              borderRadius: "12px",
+              border: "1px solid #475569",
+              background: "#1e293b",
+              color: "#ffffff",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+          >
+            <option value="newest">
+              Newest First
+            </option>
+
+            <option value="low">
+              Price: Low to High
+            </option>
+
+            <option value="high">
+              Price: High to Low
+            </option>
+          </select>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "7px",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              background: inStockOnly
+                ? "#166534"
+                : "#1e293b",
+              border: "1px solid #475569",
+              cursor: "pointer",
+              fontWeight: "700",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={inStockOnly}
+              onChange={(e) =>
+                setInStockOnly(e.target.checked)
+              }
+            />
+
+            🟢 In Stock
+          </label>
+
+          {(search ||
+            category !== "home" ||
+            sort !== "newest" ||
+            inStockOnly) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setSort("newest");
+                setInStockOnly(false);
+                selectCategory("home");
+              }}
               style={{
-                display: "flex",
-                gap: "10px",
-                justifyContent: "center",
-                alignItems: "center",
-                flexWrap: "wrap",
+                padding: "12px 16px",
+                border: "none",
+                borderRadius: "10px",
+                background: "#dc2626",
+                color: "#ffffff",
+                fontWeight: "800",
+                cursor: "pointer",
               }}
             >
-              <input
-                type="text"
-                placeholder="🔎 Search Funko Pops..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  width: "300px",
-                  maxWidth: "90vw",
-                  padding: "13px 16px",
-                  borderRadius: "12px",
-                  border: "1px solid #475569",
-                  background: "#1e293b",
-                  color: "#ffffff",
-                  fontSize: "16px",
-                  outline: "none",
-                }}
-              />
-
-              <select
-                value={category}
-                onChange={(e) => selectCategory(e.target.value)}
-                style={{
-                  padding: "13px 16px",
-                  borderRadius: "12px",
-                  border: "1px solid #475569",
-                  background: "#1e293b",
-                  color: "#ffffff",
-                  fontSize: "16px",
-                  cursor: "pointer",
-                }}
-              >
-                {categories.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                style={{
-                  padding: "13px 16px",
-                  borderRadius: "12px",
-                  border: "1px solid #475569",
-                  background: "#1e293b",
-                  color: "#ffffff",
-                  fontSize: "16px",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="newest">Newest First</option>
-                <option value="low">Price: Low to High</option>
-                <option value="high">Price: High to Low</option>
-              </select>
-
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "7px",
-                  padding: "12px 14px",
-                  borderRadius: "10px",
-                  background: inStockOnly ? "#166534" : "#1e293b",
-                  border: "1px solid #475569",
-                  cursor: "pointer",
-                  fontWeight: "700",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={inStockOnly}
-                  onChange={(e) => setInStockOnly(e.target.checked)}
-                />
-                🟢 In Stock
-              </label>
-
-              {(search ||
-                category !== "home" ||
-                sort !== "newest" ||
-                inStockOnly) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setSort("newest");
-                    setInStockOnly(false);
-                    selectCategory("home");
-                  }}
-                  style={{
-                    padding: "12px 16px",
-                    border: "none",
-                    borderRadius: "10px",
-                    background: "#dc2626",
-                    color: "#ffffff",
-                    fontWeight: "800",
-                    cursor: "pointer",
-                  }}
-                >
-                  ✕ Clear
-                </button>
-              )}
-            </div>
+              ✕ Clear
+            </button>
+          )}
         </div>
-
+      </div>
 
       <Footer />
     </>

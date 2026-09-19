@@ -214,6 +214,7 @@ export default function ClearancePage() {
                           badge={
                             product.badge || "Clearance"
                           }
+                          stock={product.stock}
                         />
                       )
                     )}
@@ -266,6 +267,7 @@ export default function ClearancePage() {
                           badge={
                             product.badge || category.name
                           }
+                          stock={product.stock}
                         />
                       ))}
                     </div>
