@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
 const ENDPOINT =
-  "https://www.sparrascollectables.co.uk/api/ebay/account-deletion";
+  "https://sparrascollectables.co.uk/api/ebay/account-deletion";
 
 export async function GET(request: NextRequest) {
   const challengeCode =
