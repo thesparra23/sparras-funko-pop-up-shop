@@ -18,13 +18,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const hash = crypto.createHash("sha256");
-
-  hash.update(challengeCode);
-  hash.update(VERIFICATION_TOKEN);
-  hash.update(ENDPOINT);
-
-  const challengeResponse = hash.digest("hex");
+  const challengeResponse = crypto
+    .createHash("sha256")
+    .update(challengeCode)
+    .update(VERIFICATION_TOKEN)
+    .update(ENDPOINT)
+    .digest("hex");
 
   return NextResponse.json(
     { challengeResponse },
@@ -41,7 +40,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log("eBay Marketplace Account Deletion notification:", body);
+    console.log(
+      "eBay Marketplace Account Deletion notification:",
+      body
+    );
 
     return NextResponse.json(
       { received: true },
