@@ -4,6 +4,9 @@ import crypto from "crypto";
 const ENDPOINT =
   "https://sparrascollectables.co.uk/api/ebay/account-deletion";
 
+const VERIFICATION_TOKEN =
+  "60972bf6799555238ba5e9517460919fa5f3dc5aef3ba513365332";
+
 export async function GET(request: NextRequest) {
   const challengeCode =
     request.nextUrl.searchParams.get("challenge_code");
@@ -15,22 +18,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const verificationToken =
-    process.env.EBAY_VERIFICATION_TOKEN;
+  const hash = crypto.createHash("sha256");
 
-  if (!verificationToken) {
-    return NextResponse.json(
-      { error: "Missing EBAY_VERIFICATION_TOKEN" },
-      { status: 500 }
-    );
-  }
+  hash.update(challengeCode);
+  hash.update(VERIFICATION_TOKEN);
+  hash.update(ENDPOINT);
 
-  const challengeResponse = crypto
-    .createHash("sha256")
-    .update(challengeCode)
-    .update(verificationToken)
-    .update(ENDPOINT)
-    .digest("hex");
+  const challengeResponse = hash.digest("hex");
 
   return NextResponse.json(
     { challengeResponse },
@@ -45,12 +39,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await request.json();
-  } catch {
-    // eBay may send an empty or non-JSON request.
-  }
+    const body = await request.json();
 
-  return new NextResponse(null, {
-    status: 200,
-  });
+    console.log("eBay Marketplace Account Deletion notification:", body);
+
+    return NextResponse.json(
+      { received: true },
+      { status: 200 }
+    );
+  } catch {
+    return NextResponse.json(
+      { received: true },
+      { status: 200 }
+    );
+  }
 }
