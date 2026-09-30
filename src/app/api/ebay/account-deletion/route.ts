@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
 const ENDPOINT =
-  "https://sparrascollectables.co.uk/api/ebay/account-deletion";
+  "https://www.sparrascollectables.co.uk/api/ebay/account-deletion";
 
 const VERIFICATION_TOKEN =
   "60972bf6799555238ba5e9517460919fa5f3dc5aef3ba513365332";
