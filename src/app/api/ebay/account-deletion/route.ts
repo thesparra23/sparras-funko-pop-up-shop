@@ -5,7 +5,6 @@ const ENDPOINT =
   "https://www.sparrascollectables.co.uk/api/ebay/account-deletion";
 
 const VERIFICATION_TOKEN =
-  const VERIFICATION_TOKEN =
   "SparrasEbayDelete2026-9f7K2mQ8xL4pN6vR";
 
 export async function GET(request: NextRequest) {
