@@ -31,9 +31,17 @@ export async function GET(request: NextRequest) {
     const clientId = process.env.EBAY_CLIENT_ID;
     const clientSecret = process.env.EBAY_CLIENT_SECRET;
     const ruName = process.env.EBAY_RU_NAME;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!clientId || !clientSecret || !ruName) {
-      console.error("Missing eBay OAuth environment variables");
+    if (
+      !clientId ||
+      !clientSecret ||
+      !ruName ||
+      !supabaseUrl ||
+      !supabaseServiceRoleKey
+    ) {
+      console.error("Missing eBay or Supabase environment variables");
 
       return NextResponse.json(
         {
@@ -74,16 +82,49 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log("eBay OAuth connection successful");
+    if (!tokenData.refresh_token) {
+      console.error("eBay did not return a refresh token");
 
-    /*
-     * IMPORTANT:
-     * The refresh token must be stored securely on the server.
-     * We deliberately do NOT put it into the browser URL.
-     *
-     * We will connect this successful OAuth response to the
-     * site's database in the next step.
-     */
+      return NextResponse.json(
+        {
+          error: "eBay did not return a refresh token.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const saveResponse = await fetch(
+      `${supabaseUrl}/rest/v1/ebay_oauth_tokens`,
+      {
+        method: "POST",
+        headers: {
+          apikey: supabaseServiceRoleKey,
+          Authorization: `Bearer ${supabaseServiceRoleKey}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates",
+        },
+        body: JSON.stringify({
+          id: "ebay",
+          refresh_token: tokenData.refresh_token,
+          updated_at: new Date().toISOString(),
+        }),
+      }
+    );
+
+    if (!saveResponse.ok) {
+      const saveError = await saveResponse.text();
+
+      console.error("Failed to save eBay refresh token:", saveError);
+
+      return NextResponse.json(
+        {
+          error: "eBay connected, but the refresh token could not be saved.",
+        },
+        { status: 500 }
+      );
+    }
+
+    console.log("eBay OAuth connection successful and token saved");
 
     return NextResponse.redirect(
       new URL("/admin?ebay=connected", request.url)
