@@ -24,8 +24,6 @@ export default function AdminPage() {
   const [isVaulted, setIsVaulted] = useState(false);
   const [isExclusive, setIsExclusive] = useState(false);
   const [isOffer, setIsOffer] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const [showExtraPhotos, setShowExtraPhotos] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -123,7 +121,11 @@ export default function AdminPage() {
       .insert({
         name: name.trim(),
         image: images[0] || null,
-        images,
+        image_2: images[1] || null,
+        image_3: images[2] || null,
+        image_4: images[3] || null,
+        image_5: images[4] || null,
+        image_6: images[5] || null,
         price: Number(price) || 0,
         stock: Number(stock) || 0,
         product_number: productNumber.trim() || null,
