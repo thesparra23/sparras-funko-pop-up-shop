@@ -128,11 +128,55 @@ function getFirstPolicyId(
     ? data[collectionName]
     : [];
 
-  const active = collection.find(
-    (policy: any) => policy?.status === "ACTIVE" && policy?.[idName]
+  const policyWithId = collection.find((policy: any) => policy?.[idName]);
+
+  return policyWithId?.[idName] || null;
+}
+
+async function ensureSellingPolicyManagement(accessToken: string) {
+  const programsResponse = await ebayRequest(
+    accessToken,
+    "/sell/account/v1/program/get_opted_in_programs"
   );
 
-  return active?.[idName] || collection?.[0]?.[idName] || null;
+  if (programsResponse.response.ok) {
+    const programs = Array.isArray((programsResponse.data as any)?.programs)
+      ? (programsResponse.data as any).programs
+      : [];
+
+    const alreadyOptedIn = programs.some(
+      (program: any) =>
+        program?.programType === "SELLING_POLICY_MANAGEMENT"
+    );
+
+    if (alreadyOptedIn) {
+      return;
+    }
+  } else {
+    console.error(
+      "eBay opted-in programs check failed:",
+      programsResponse.data
+    );
+  }
+
+  const optInResponse = await ebayRequest(
+    accessToken,
+    "/sell/account/v1/program/opt_in",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        programType: "SELLING_POLICY_MANAGEMENT",
+      }),
+    }
+  );
+
+  if (!optInResponse.response.ok) {
+    const errorText = JSON.stringify(optInResponse.data);
+    console.error("eBay business policy opt-in failed:", optInResponse.data);
+    throw new Error(
+      `eBay business policy setup could not be enabled. ${errorText}`
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -222,6 +266,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    await ensureSellingPolicyManagement(accessToken);
+
     const fulfillmentResponse = await ebayRequest(
       accessToken,
       `/sell/account/v1/fulfillment_policy?marketplace_id=${MARKETPLACE_ID}`
@@ -270,10 +316,22 @@ export async function POST(request: NextRequest) {
       );
 
     if (!fulfillmentPolicyId || !paymentPolicyId || !returnPolicyId) {
+      const missing = [
+        !fulfillmentPolicyId ? "postage/fulfillment" : null,
+        !paymentPolicyId ? "payment" : null,
+        !returnPolicyId ? "returns" : null,
+      ].filter(Boolean);
+
       return NextResponse.json(
         {
-          error:
-            "eBay business policies are not ready. You need an active payment, postage/fulfillment and returns policy for eBay UK before products can be published.",
+          error: `eBay is still not returning a usable ${missing.join(
+            ", "
+          )} policy for eBay UK.`,
+          details: {
+            fulfillment: fulfillmentResponse.data,
+            payment: paymentResponse.data,
+            returns: returnResponse.data,
+          },
         },
         { status: 400 }
       );
