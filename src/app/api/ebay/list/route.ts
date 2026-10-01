@@ -6,6 +6,13 @@ const MARKETPLACE_ID = "EBAY_GB";
 const CATEGORY_ID = process.env.EBAY_CATEGORY_ID || "149372";
 const EBAY_TIMEOUT_MS = 20000;
 
+// eBay Inventory API requires a real inventory location before an offer can be published.
+// This is the dispatch postcode already configured on the eBay seller account.
+const DEFAULT_MERCHANT_LOCATION_KEY = "SPARRAS-SWINESHEAD";
+const DEFAULT_INVENTORY_LOCATION_NAME = "Sparra's Collectables";
+const DEFAULT_INVENTORY_POSTAL_CODE = "PE20 3LJ";
+const DEFAULT_INVENTORY_COUNTRY = "GB";
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
@@ -61,9 +68,7 @@ async function getEbayAccessToken() {
     throw new Error("eBay is not connected. Click Connect eBay first.");
   }
 
-  const credentials = Buffer.from(
-    `${clientId}:${clientSecret}`
-  ).toString("base64");
+  const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
   const response = await fetchWithTimeout(EBAY_TOKEN_URL, {
     method: "POST",
@@ -119,11 +124,7 @@ async function ebayRequest(
   return { response, data };
 }
 
-function getFirstPolicyId(
-  data: any,
-  collectionName: string,
-  idName: string
-) {
+function getFirstPolicyId(data: any, collectionName: string, idName: string) {
   const collection = Array.isArray(data?.[collectionName])
     ? data[collectionName]
     : [];
@@ -145,8 +146,7 @@ async function ensureSellingPolicyManagement(accessToken: string) {
       : [];
 
     const alreadyOptedIn = programs.some(
-      (program: any) =>
-        program?.programType === "SELLING_POLICY_MANAGEMENT"
+      (program: any) => program?.programType === "SELLING_POLICY_MANAGEMENT"
     );
 
     if (alreadyOptedIn) {
@@ -177,6 +177,125 @@ async function ensureSellingPolicyManagement(accessToken: string) {
       `eBay business policy setup could not be enabled. ${errorText}`
     );
   }
+}
+
+function getLocationStatus(location: any) {
+  return location?.merchantLocationStatus || location?.locationStatus || null;
+}
+
+async function ensureInventoryLocation(accessToken: string) {
+  const configuredLocationKey =
+    process.env.EBAY_MERCHANT_LOCATION_KEY?.trim() ||
+    DEFAULT_MERCHANT_LOCATION_KEY;
+
+  const locationsResponse = await ebayRequest(
+    accessToken,
+    "/sell/inventory/v1/location?limit=100"
+  );
+
+  if (!locationsResponse.response.ok) {
+    console.error("eBay locations error:", locationsResponse.data);
+    throw new Error(
+      `eBay could not retrieve inventory locations. ${JSON.stringify(
+        locationsResponse.data
+      )}`
+    );
+  }
+
+  const locations = Array.isArray((locationsResponse.data as any)?.locations)
+    ? (locationsResponse.data as any).locations
+    : [];
+
+  const configuredLocation = locations.find(
+    (item: any) => item?.merchantLocationKey === configuredLocationKey
+  );
+
+  if (configuredLocation) {
+    const status = getLocationStatus(configuredLocation);
+
+    if (status !== "DISABLED") {
+      return configuredLocationKey;
+    }
+
+    const enableResponse = await ebayRequest(
+      accessToken,
+      `/sell/inventory/v1/location/${encodeURIComponent(
+        configuredLocationKey
+      )}/enable`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      }
+    );
+
+    if (!enableResponse.response.ok) {
+      console.error("eBay inventory location enable error:", enableResponse.data);
+      throw new Error(
+        `eBay found the inventory location but could not enable it. ${JSON.stringify(
+          enableResponse.data
+        )}`
+      );
+    }
+
+    return configuredLocationKey;
+  }
+
+  // If there is another active inventory location, use it rather than creating a duplicate.
+  const existingActiveLocation = locations.find(
+    (item: any) => getLocationStatus(item) !== "DISABLED"
+  );
+
+  if (existingActiveLocation?.merchantLocationKey) {
+    return existingActiveLocation.merchantLocationKey as string;
+  }
+
+  // No Inventory API location exists, so create one automatically from the seller's
+  // dispatch postcode. eBay requires at least a postal code and country for a warehouse.
+  const createResponse = await ebayRequest(
+    accessToken,
+    `/sell/inventory/v1/location/${encodeURIComponent(configuredLocationKey)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        location: {
+          address: {
+            postalCode: DEFAULT_INVENTORY_POSTAL_CODE,
+            country: DEFAULT_INVENTORY_COUNTRY,
+          },
+        },
+        name: DEFAULT_INVENTORY_LOCATION_NAME,
+        merchantLocationStatus: "ENABLED",
+        locationTypes: ["WAREHOUSE"],
+      }),
+    }
+  );
+
+  if (!createResponse.response.ok) {
+    console.error("eBay inventory location creation error:", createResponse.data);
+
+    // A concurrent request may have created it between our GET and POST.
+    if (createResponse.response.status === 409) {
+      const retryResponse = await ebayRequest(
+        accessToken,
+        `/sell/inventory/v1/location/${encodeURIComponent(configuredLocationKey)}`
+      );
+
+      if (retryResponse.response.ok) {
+        const retryLocation = retryResponse.data as any;
+        if (getLocationStatus(retryLocation) !== "DISABLED") {
+          return configuredLocationKey;
+        }
+      }
+    }
+
+    throw new Error(
+      `eBay could not create the inventory location. ${JSON.stringify(
+        createResponse.data
+      )}`
+    );
+  }
+
+  return configuredLocationKey;
 }
 
 export async function POST(request: NextRequest) {
@@ -337,40 +456,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const locationsResponse = await ebayRequest(
-      accessToken,
-      "/sell/inventory/v1/location?limit=100"
-    );
-
-    if (!locationsResponse.response.ok) {
-      console.error("eBay locations error:", locationsResponse.data);
-    }
-
-    const locations = Array.isArray((locationsResponse.data as any)?.locations)
-      ? (locationsResponse.data as any).locations
-      : [];
-
-    const configuredLocationKey = process.env.EBAY_MERCHANT_LOCATION_KEY;
-    const location = configuredLocationKey
-      ? locations.find(
-          (item: any) =>
-            item?.merchantLocationKey === configuredLocationKey &&
-            item?.locationStatus !== "DISABLED"
-        )
-      : locations.find((item: any) => item?.locationStatus !== "DISABLED");
-
-    const merchantLocationKey =
-      configuredLocationKey || location?.merchantLocationKey;
-
-    if (!merchantLocationKey) {
-      return NextResponse.json(
-        {
-          error:
-            "eBay has no active inventory location yet. Add your selling/shipping location in eBay first, then try List on eBay again.",
-        },
-        { status: 400 }
-      );
-    }
+    const merchantLocationKey = await ensureInventoryLocation(accessToken);
 
     const description =
       product.description?.trim() ||
