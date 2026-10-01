@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "eBay rejected the inventory item.", details: inventoryResponse.data }, { status: inventoryResponse.response.status });
     }
 
-    const offerPayload = {
+    const offerPayload: any = {
       sku,
       marketplaceId: MARKETPLACE_ID,
       format: "FIXED_PRICE",
@@ -249,8 +249,20 @@ export async function POST(request: NextRequest) {
       listingDuration: "GTC",
       merchantLocationKey,
       pricingSummary: { price: { currency: "GBP", value: Number(product.price).toFixed(2) } },
-      listingPolicies: { fulfillmentPolicyId, paymentPolicyId, returnPolicyId },
+      listingPolicies: {
+        fulfillmentPolicyId,
+        paymentPolicyId,
+        returnPolicyId,
+      },
     };
+
+    // Products marked "Offer" on the website will have eBay Best Offer enabled.
+    // eBay's Inventory API expects this under listingPolicies.bestOfferTerms.
+    if (product.is_offer === true) {
+      offerPayload.listingPolicies.bestOfferTerms = {
+        bestOfferEnabled: true,
+      };
+    }
 
     let offerId: string | null = null;
 
@@ -290,7 +302,13 @@ export async function POST(request: NextRequest) {
     }
 
     const listingId = (publishResponse.data as any)?.listingId;
-    return NextResponse.json({ success: true, listingId, offerId, message: listingId ? `Listed on eBay successfully. Listing ID: ${listingId}` : "Listed on eBay successfully." });
+    return NextResponse.json({
+      success: true,
+      listingId,
+      offerId,
+      bestOfferEnabled: product.is_offer === true,
+      message: listingId ? `Listed on eBay successfully. Listing ID: ${listingId}` : "Listed on eBay successfully.",
+    });
   } catch (error) {
     console.error("eBay list route error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unexpected error while listing on eBay." }, { status: 500 });
