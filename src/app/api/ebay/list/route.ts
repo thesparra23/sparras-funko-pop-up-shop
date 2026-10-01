@@ -190,13 +190,16 @@ export async function POST(request: NextRequest) {
     const sku = `SPARRA-${String(product.id).replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
     const existingOffers = await ebayRequest(accessToken, `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&marketplace_id=${MARKETPLACE_ID}`);
+    let existingUnpublishedOffer: any = null;
+
     if (existingOffers.response.ok) {
-      const offers = (existingOffers.data as any)?.offers || [];
+      const offers = Array.isArray((existingOffers.data as any)?.offers) ? (existingOffers.data as any).offers : [];
       const publishedOffer = offers.find((offer: any) => offer?.status === "PUBLISHED");
       if (publishedOffer) {
         const listingId = publishedOffer?.listing?.listingId;
         return NextResponse.json({ success: true, alreadyListed: true, listingId, message: listingId ? `Already listed on eBay. Listing ID: ${listingId}` : "This product is already listed on eBay." });
       }
+      existingUnpublishedOffer = offers.find((offer: any) => offer?.offerId && offer?.status !== "PUBLISHED") || null;
     }
 
     await ensureSellingPolicyManagement(accessToken);
@@ -219,13 +222,14 @@ export async function POST(request: NextRequest) {
 
     const merchantLocationKey = await ensureInventoryLocation(accessToken);
     const description = product.description?.trim() || `${product.name}. Genuine Funko collectible from Sparra's Funko Pop Up Shop.`;
+    const availableQuantity = Math.max(0, Number(product.stock) || 0);
     const aspects: Record<string, string[]> = { Brand: ["Funko"], Type: ["Vinyl Figure"], "Product Line": ["Pop!"] };
     if (product.category) aspects.Collection = [product.category];
 
     const inventoryResponse = await ebayRequest(accessToken, `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
       method: "PUT",
       body: JSON.stringify({
-        availability: { shipToLocationAvailability: { quantity: Math.max(0, Number(product.stock) || 0) } },
+        availability: { shipToLocationAvailability: { quantity: availableQuantity } },
         condition: "NEW",
         product: { title: String(product.name).slice(0, 80), description, imageUrls: [product.image], aspects },
       }),
@@ -235,32 +239,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "eBay rejected the inventory item.", details: inventoryResponse.data }, { status: inventoryResponse.response.status });
     }
 
-    const offerResponse = await ebayRequest(accessToken, "/sell/inventory/v1/offer", {
-      method: "POST",
-      body: JSON.stringify({
-        sku,
-        marketplaceId: MARKETPLACE_ID,
-        format: "FIXED_PRICE",
-        availableQuantity: Math.max(0, Number(product.stock) || 0),
-        categoryId: CATEGORY_ID,
-        listingDescription: description,
-        listingDuration: "GTC",
-        merchantLocationKey,
-        pricingSummary: { price: { currency: "GBP", value: Number(product.price).toFixed(2) } },
-        listingPolicies: { fulfillmentPolicyId, paymentPolicyId, returnPolicyId },
-      }),
-    });
+    const offerPayload = {
+      sku,
+      marketplaceId: MARKETPLACE_ID,
+      format: "FIXED_PRICE",
+      availableQuantity,
+      categoryId: CATEGORY_ID,
+      listingDescription: description,
+      listingDuration: "GTC",
+      merchantLocationKey,
+      pricingSummary: { price: { currency: "GBP", value: Number(product.price).toFixed(2) } },
+      listingPolicies: { fulfillmentPolicyId, paymentPolicyId, returnPolicyId },
+    };
 
-    if (!offerResponse.response.ok) {
-      return NextResponse.json({ error: "eBay created the inventory item but rejected the listing offer.", details: offerResponse.data }, { status: offerResponse.response.status });
+    let offerId: string | null = null;
+
+    if (existingUnpublishedOffer?.offerId) {
+      const updateResponse = await ebayRequest(
+        accessToken,
+        `/sell/inventory/v1/offer/${encodeURIComponent(existingUnpublishedOffer.offerId)}`,
+        { method: "PUT", body: JSON.stringify(offerPayload) }
+      );
+
+      if (!updateResponse.response.ok) {
+        return NextResponse.json({
+          error: "eBay found an existing unpublished offer but could not update it.",
+          details: updateResponse.data,
+        }, { status: updateResponse.response.status });
+      }
+
+      offerId = existingUnpublishedOffer.offerId as string;
+    } else {
+      const offerResponse = await ebayRequest(accessToken, "/sell/inventory/v1/offer", {
+        method: "POST",
+        body: JSON.stringify(offerPayload),
+      });
+
+      if (!offerResponse.response.ok) {
+        return NextResponse.json({ error: "eBay created the inventory item but rejected the listing offer.", details: offerResponse.data }, { status: offerResponse.response.status });
+      }
+
+      offerId = (offerResponse.data as any)?.offerId || null;
     }
 
-    const offerId = (offerResponse.data as any)?.offerId;
     if (!offerId) return NextResponse.json({ error: "eBay did not return an offer ID." }, { status: 500 });
 
     const publishResponse = await ebayRequest(accessToken, `/sell/inventory/v1/offer/${encodeURIComponent(offerId)}/publish`, { method: "POST", body: JSON.stringify({}) });
     if (!publishResponse.response.ok) {
-      return NextResponse.json({ error: "eBay created the offer but could not publish the listing.", details: publishResponse.data }, { status: publishResponse.response.status });
+      return NextResponse.json({ error: "eBay has the offer but could not publish the listing.", details: publishResponse.data }, { status: publishResponse.response.status });
     }
 
     const listingId = (publishResponse.data as any)?.listingId;
