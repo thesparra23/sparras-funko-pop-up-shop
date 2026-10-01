@@ -4,6 +4,31 @@ const EBAY_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token";
 const EBAY_API = "https://api.ebay.com";
 const MARKETPLACE_ID = "EBAY_GB";
 const CATEGORY_ID = process.env.EBAY_CATEGORY_ID || "149372";
+const EBAY_TIMEOUT_MS = 20000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = EBAY_TIMEOUT_MS
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`eBay request timed out after ${timeoutMs / 1000} seconds.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function getEbayAccessToken() {
   const clientId = process.env.EBAY_CLIENT_ID;
@@ -15,14 +40,13 @@ async function getEbayAccessToken() {
     throw new Error("Missing eBay or Supabase server environment variables.");
   }
 
-  const tokenResponse = await fetch(
+  const tokenResponse = await fetchWithTimeout(
     `${supabaseUrl}/rest/v1/ebay_oauth_tokens?id=eq.ebay&select=refresh_token`,
     {
       headers: {
         apikey: serviceRoleKey,
         Authorization: `Bearer ${serviceRoleKey}`,
       },
-      cache: "no-store",
     }
   );
 
@@ -41,7 +65,7 @@ async function getEbayAccessToken() {
     `${clientId}:${clientSecret}`
   ).toString("base64");
 
-  const response = await fetch(EBAY_TOKEN_URL, {
+  const response = await fetchWithTimeout(EBAY_TOKEN_URL, {
     method: "POST",
     headers: {
       Authorization: `Basic ${credentials}`,
@@ -51,7 +75,6 @@ async function getEbayAccessToken() {
       grant_type: "refresh_token",
       refresh_token: refreshToken,
     }).toString(),
-    cache: "no-store",
   });
 
   const data = await response.json();
@@ -72,7 +95,7 @@ async function ebayRequest(
   path: string,
   options: RequestInit = {}
 ) {
-  const response = await fetch(`${EBAY_API}${path}`, {
+  const response = await fetchWithTimeout(`${EBAY_API}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -80,7 +103,6 @@ async function ebayRequest(
       "Content-Language": "en-GB",
       ...(options.headers || {}),
     },
-    cache: "no-store",
   });
 
   const text = await response.text();
@@ -135,7 +157,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const productResponse = await fetch(
+    const productResponse = await fetchWithTimeout(
       `${supabaseUrl}/rest/v1/products?id=eq.${encodeURIComponent(
         productId
       )}&select=*`,
@@ -144,7 +166,6 @@ export async function POST(request: NextRequest) {
           apikey: serviceRoleKey,
           Authorization: `Bearer ${serviceRoleKey}`,
         },
-        cache: "no-store",
       }
     );
 
