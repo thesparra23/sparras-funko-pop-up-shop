@@ -29,6 +29,13 @@ export async function POST(request: Request) {
       );
     }
 
+    const validatedItems: Array<{
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+    }> = [];
+
     for (const item of items) {
       const quantity = Number(item.quantity);
 
@@ -44,7 +51,7 @@ export async function POST(request: Request) {
       const { data: product, error: stockError } =
         await supabase
           .from("products")
-          .select("id, name, stock")
+          .select("id, name, price, stock")
           .eq("name", item.name)
           .maybeSingle();
 
@@ -79,6 +86,13 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
+
+      validatedItems.push({
+        id: String(product.id),
+        name: String(product.name),
+        price: Number(product.price),
+        quantity,
+      });
     }
 
     const host =
@@ -157,27 +171,24 @@ export async function POST(request: Request) {
         customer_postcode: customer.postcode || "",
       },
 
-      line_items: items.map(
-        (item: {
-          name: string;
-          price: number;
-          quantity: number;
-        }) => ({
-          price_data: {
-            currency: "gbp",
+      line_items: validatedItems.map((item) => ({
+        price_data: {
+          currency: "gbp",
 
-            product_data: {
-              name: item.name,
+          product_data: {
+            name: item.name,
+            metadata: {
+              sparra_product_id: item.id,
             },
-
-            unit_amount: Math.round(
-              Number(item.price) * 100
-            ),
           },
 
-          quantity: Number(item.quantity),
-        })
-      ),
+          unit_amount: Math.round(
+            Number(item.price) * 100
+          ),
+        },
+
+        quantity: item.quantity,
+      })),
 
       success_url:
         `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
