@@ -45,6 +45,30 @@ export default function ManageProductsPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [listingProductId, setListingProductId] = useState<string | null>(null);
+  const [ebayListings, setEbayListings] = useState<Record<string, string>>({});
+
+  async function loadEbayStatuses(productList: Product[]) {
+    if (productList.length === 0) {
+      setEbayListings({});
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/ebay/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productIds: productList.map((product) => product.id) }),
+        cache: "no-store",
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      setEbayListings(data?.listings || {});
+    } catch {
+      // Listing status is helpful but should never stop the admin page loading.
+    }
+  }
 
   async function loadProducts() {
     setLoading(true);
@@ -57,7 +81,9 @@ export default function ManageProductsPage() {
     if (error) {
       setMessage(`Error loading products: ${error.message}`);
     } else {
-      setProducts(data || []);
+      const loadedProducts = (data || []) as Product[];
+      setProducts(loadedProducts);
+      await loadEbayStatuses(loadedProducts);
     }
 
     setLoading(false);
@@ -85,11 +111,31 @@ export default function ManageProductsPage() {
     }
 
     setProducts((current) => current.filter((item) => item.id !== id));
+    setEbayListings((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     setMessage("Product deleted successfully.");
+  }
+
+  function openEbayListing(listingId: string) {
+    window.open(
+      `https://www.ebay.co.uk/itm/${listingId}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   async function listOnEbay(product: Product) {
     if (listingProductId) return;
+
+    const existingListingId = ebayListings[product.id];
+
+    if (existingListingId) {
+      openEbayListing(existingListingId);
+      return;
+    }
 
     if (!product.image) {
       setMessage("❌ This product needs an image before it can be listed on eBay.");
@@ -117,7 +163,8 @@ export default function ManageProductsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        const detail = data?.details?.errors?.[0]?.longMessage ||
+        const detail =
+          data?.details?.errors?.[0]?.longMessage ||
           data?.details?.errors?.[0]?.message ||
           data?.error ||
           "eBay could not publish this listing.";
@@ -126,14 +173,17 @@ export default function ManageProductsPage() {
         return;
       }
 
+      if (data.listingId) {
+        setEbayListings((current) => ({
+          ...current,
+          [product.id]: String(data.listingId),
+        }));
+      }
+
       setMessage(`✅ ${data.message || "Listed on eBay successfully."}`);
 
       if (data.listingId) {
-        window.open(
-          `https://www.ebay.co.uk/itm/${data.listingId}`,
-          "_blank",
-          "noopener,noreferrer"
-        );
+        openEbayListing(String(data.listingId));
       }
     } catch (error) {
       setMessage(
@@ -309,124 +359,142 @@ export default function ManageProductsPage() {
           </div>
         ) : (
           <div style={{ display: "grid", gap: "18px" }}>
-            {products.map((product) => (
-              <div
-                key={product.id}
-                style={{
-                  background: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "12px",
-                  padding: "18px",
-                  display: "grid",
-                  gridTemplateColumns: "110px 1fr auto",
-                  gap: "20px",
-                  alignItems: "center",
-                }}
-              >
+            {products.map((product) => {
+              const listingId = ebayListings[product.id];
+
+              return (
                 <div
+                  key={product.id}
                   style={{
-                    width: "110px",
-                    height: "110px",
-                    background: "#0f172a",
-                    borderRadius: "8px",
-                    overflow: "hidden",
-                    display: "flex",
+                    background: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "12px",
+                    padding: "18px",
+                    display: "grid",
+                    gridTemplateColumns: "110px 1fr auto",
+                    gap: "20px",
                     alignItems: "center",
-                    justifyContent: "center",
                   }}
                 >
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                    />
-                  ) : (
-                    <span>No image</span>
-                  )}
-                </div>
-
-                <div>
-                  <h2 style={{ margin: "0 0 8px", fontSize: "22px" }}>
-                    {product.name}
-                  </h2>
-
-                  <div style={{ color: "#94a3b8", marginBottom: "12px" }}>
-                    Category: {product.category || "None"}
-                  </div>
-
-                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                    {product.is_chase && <span>🎯 Chase</span>}
-                    {product.is_vaulted && <span>🔒 Vaulted</span>}
-                    {product.is_exclusive && <span>⭐ Exclusive</span>}
-                    {product.is_offer && <span>🔥 Offer</span>}
-                  </div>
-
-                  <div style={{ marginTop: "12px", color: "#ffffff" }}>
-                    <strong>£{Number(product.price).toFixed(2)}</strong> • Stock: {product.stock}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "10px",
-                    minWidth: "150px",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => listOnEbay(product)}
-                    disabled={listingProductId !== null}
+                  <div
                     style={{
-                      background:
-                        listingProductId === product.id ? "#64748b" : "#facc15",
-                      color: "#111827",
-                      border: "none",
-                      padding: "12px 18px",
+                      width: "110px",
+                      height: "110px",
+                      background: "#0f172a",
                       borderRadius: "8px",
-                      cursor: listingProductId !== null ? "not-allowed" : "pointer",
-                      fontWeight: "700",
+                      overflow: "hidden",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                     }}
                   >
-                    {listingProductId === product.id ? "⏳ Listing..." : "🛒 List on eBay"}
-                  </button>
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                      />
+                    ) : (
+                      <span>No image</span>
+                    )}
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setEditingProduct({ ...product })}
+                  <div>
+                    <h2 style={{ margin: "0 0 8px", fontSize: "22px" }}>
+                      {product.name}
+                    </h2>
+
+                    <div style={{ color: "#94a3b8", marginBottom: "12px" }}>
+                      Category: {product.category || "None"}
+                    </div>
+
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      {product.is_chase && <span>🎯 Chase</span>}
+                      {product.is_vaulted && <span>🔒 Vaulted</span>}
+                      {product.is_exclusive && <span>⭐ Exclusive</span>}
+                      {product.is_offer && <span>🔥 Offer</span>}
+                    </div>
+
+                    <div style={{ marginTop: "12px", color: "#ffffff" }}>
+                      <strong>£{Number(product.price).toFixed(2)}</strong> • Stock: {product.stock}
+                    </div>
+
+                    {listingId && (
+                      <div style={{ marginTop: "10px", color: "#86efac", fontWeight: "700" }}>
+                        ✅ Listed on eBay
+                      </div>
+                    )}
+                  </div>
+
+                  <div
                     style={{
-                      background: "#2563eb",
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "12px 18px",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontWeight: "700",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                      minWidth: "150px",
                     }}
                   >
-                    ✏️ Edit
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => listOnEbay(product)}
+                      disabled={listingProductId !== null}
+                      style={{
+                        background:
+                          listingProductId === product.id
+                            ? "#64748b"
+                            : listingId
+                              ? "#22c55e"
+                              : "#facc15",
+                        color: listingId ? "#ffffff" : "#111827",
+                        border: "none",
+                        padding: "12px 18px",
+                        borderRadius: "8px",
+                        cursor: listingProductId !== null ? "not-allowed" : "pointer",
+                        fontWeight: "700",
+                      }}
+                    >
+                      {listingProductId === product.id
+                        ? "⏳ Listing..."
+                        : listingId
+                          ? "🔗 View on eBay"
+                          : "🛒 List on eBay"}
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => deleteProduct(product.id)}
-                    style={{
-                      background: "#dc2626",
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "12px 18px",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      fontWeight: "700",
-                    }}
-                  >
-                    🗑 Delete
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProduct({ ...product })}
+                      style={{
+                        background: "#2563eb",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "12px 18px",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontWeight: "700",
+                      }}
+                    >
+                      ✏️ Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteProduct(product.id)}
+                      style={{
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        border: "none",
+                        padding: "12px 18px",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontWeight: "700",
+                      }}
+                    >
+                      🗑 Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -592,7 +660,7 @@ export default function ManageProductsPage() {
                         is_chase: e.target.checked,
                       })
                     }
-                  />{" "}
+                  /> {" "}
                   🎯 Chase
                 </label>
 
@@ -606,7 +674,7 @@ export default function ManageProductsPage() {
                         is_vaulted: e.target.checked,
                       })
                     }
-                  />{" "}
+                  /> {" "}
                   🔒 Vaulted
                 </label>
 
@@ -620,7 +688,7 @@ export default function ManageProductsPage() {
                         is_exclusive: e.target.checked,
                       })
                     }
-                  />{" "}
+                  /> {" "}
                   ⭐ Exclusive
                 </label>
 
@@ -634,7 +702,7 @@ export default function ManageProductsPage() {
                         is_offer: e.target.checked,
                       })
                     }
-                  />{" "}
+                  /> {" "}
                   🔥 Offer
                 </label>
               </div>
