@@ -51,319 +51,70 @@ export default function AdminPage() {
       .order("name");
 
     if (error) {
-      console.error("Error loading categories:", error);
       setCategoryMessage(`Error loading categories: ${error.message}`);
       return;
     }
 
-    const loadedCategories = data || [];
-
-    setCategories(loadedCategories);
-
-    if (loadedCategories.length > 0) {
-      let savedCategory = "";
-
-      try {
-        savedCategory =
-          window.localStorage.getItem(
-            "sparras-admin-last-category"
-          ) || "";
-      } catch {
-        savedCategory = "";
-      }
-
-      const preferredCategory =
-        loadedCategories.find(
-          (item) => item.name === savedCategory
-        )?.name ||
-        loadedCategories.find(
-          (item) => item.name === category
-        )?.name ||
-        loadedCategories[0].name;
-
-      setCategory(preferredCategory);
-    }
-
+    setCategories(data || []);
   }
 
   useEffect(() => {
     loadCategories();
   }, []);
 
-  function createSlug(value: string) {
-    return value
-      .trim()
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-  }
-
   async function addCategory() {
-    const trimmedName = newCategory.trim();
+    const trimmed = newCategory.trim();
+
+    if (!trimmed) return;
 
     if (!supabase) {
       setCategoryMessage("Supabase is not configured.");
       return;
     }
 
-    if (!trimmedName) {
-      setCategoryMessage("Please enter a category name.");
-      return;
-    }
-
-    const slug = createSlug(trimmedName);
-
-    if (!slug) {
-      setCategoryMessage("Please enter a valid category name.");
-      return;
-    }
-
-    if (
-      categories.some(
-        (item) =>
-          item.name.toLowerCase() ===
-          trimmedName.toLowerCase()
-      )
-    ) {
-      setCategoryMessage("That category already exists.");
-      return;
-    }
-
     setCategorySaving(true);
     setCategoryMessage("");
 
-    const { data, error } = await supabase
-      .from("categories")
-      .insert({
-        name: trimmedName,
-        slug,
-      })
-      .select("id, name, slug")
-      .single();
+    const slug = trimmed
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const { error } = await supabase.from("categories").insert({
+      name: trimmed,
+      slug,
+    });
 
     if (error) {
-      console.error(error);
-      setCategoryMessage(`Error: ${error.message}`);
+      setCategoryMessage(`Error adding category: ${error.message}`);
       setCategorySaving(false);
       return;
-    }
-
-    if (data) {
-      setCategories((current) =>
-        [...current, data].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
-      );
-
-      setCategory(data.name);
     }
 
     setNewCategory("");
-    setCategoryMessage("✅ Category added successfully!");
+    setCategoryMessage("Category added successfully.");
+    await loadCategories();
     setCategorySaving(false);
   }
 
-  async function renameCategory(categoryItem: Category) {
-    if (!supabase) {
-      setCategoryMessage("Supabase is not configured.");
-      return;
-    }
-
-    const newName = window.prompt(
-      "Enter the new category name:",
-      categoryItem.name
-    );
-
-    if (newName === null) return;
-
-    const trimmedName = newName.trim();
-
-    if (!trimmedName) {
-      setCategoryMessage("Category name cannot be empty.");
-      return;
-    }
-
-    if (
-      trimmedName.toLowerCase() !==
-        categoryItem.name.toLowerCase() &&
-      categories.some(
-        (item) =>
-          item.name.toLowerCase() ===
-          trimmedName.toLowerCase()
-      )
-    ) {
-      setCategoryMessage("That category already exists.");
-      return;
-    }
-
-    const newSlug = createSlug(trimmedName);
-
-    if (!newSlug) {
-      setCategoryMessage("Invalid category name.");
-      return;
-    }
-
-    setCategorySaving(true);
-    setCategoryMessage("");
-
-    const { error: categoryError } = await supabase
-      .from("categories")
-      .update({
-        name: trimmedName,
-        slug: newSlug,
-      })
-      .eq("id", categoryItem.id);
-
-    if (categoryError) {
-      console.error(categoryError);
-      setCategoryMessage(
-        `Error renaming category: ${categoryError.message}`
-      );
-      setCategorySaving(false);
-      return;
-    }
-
-    const { error: productError } = await supabase
-      .from("products")
-      .update({
-        category: trimmedName,
-      })
-      .eq("category", categoryItem.name);
-
-    if (productError) {
-      console.error(productError);
-      setCategoryMessage(
-        `Category renamed, but existing products could not be updated: ${productError.message}`
-      );
-      await loadCategories();
-      setCategorySaving(false);
-      return;
-    }
-
-    setCategories((current) =>
-      current
-        .map((item) =>
-          item.id === categoryItem.id
-            ? {
-                ...item,
-                name: trimmedName,
-                slug: newSlug,
-              }
-            : item
-        )
-        .sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
-    );
-
-    if (category === categoryItem.name) {
-      setCategory(trimmedName);
-    }
-
-    setCategoryMessage("✅ Category renamed successfully!");
-    setCategorySaving(false);
-  }
-
-  async function deleteCategory(categoryItem: Category) {
-    if (!supabase) {
-      setCategoryMessage("Supabase is not configured.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete the category "${categoryItem.name}"?\n\nThis will only delete the category. Products currently using it will not be deleted.`
-    );
-
-    if (!confirmed) return;
-
-    setCategorySaving(true);
-    setCategoryMessage("");
-
-    const { count, error: productCheckError } =
-      await supabase
-        .from("products")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("category", categoryItem.name);
-
-    if (productCheckError) {
-      console.error(productCheckError);
-      setCategoryMessage(
-        `Error checking products: ${productCheckError.message}`
-      );
-      setCategorySaving(false);
-      return;
-    }
-
-    if ((count || 0) > 0) {
-      setCategoryMessage(
-        `Cannot delete "${categoryItem.name}" because ${count} product${
-          count === 1 ? "" : "s"
-        } use this category.`
-      );
-      setCategorySaving(false);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("categories")
-      .delete()
-      .eq("id", categoryItem.id);
-
-    if (error) {
-      console.error(error);
-      setCategoryMessage(
-        `Error deleting category: ${error.message}`
-      );
-      setCategorySaving(false);
-      return;
-    }
-
-    const remaining = categories.filter(
-      (item) => item.id !== categoryItem.id
-    );
-
-    setCategories(remaining);
-
-    if (category === categoryItem.name) {
-      setCategory(
-        remaining.length > 0
-          ? remaining[0].name
-          : ""
-      );
-    }
-
-    setCategoryMessage("✅ Category deleted successfully!");
-    setCategorySaving(false);
-  }
-
-  async function handleImageUpload(
+  async function uploadImage(
     event: React.ChangeEvent<HTMLInputElement>,
-    imageIndex: number
+    index: number
   ) {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    setUploading(true);
-    setMessage("");
-
     if (!supabase) {
       setMessage("Supabase is not configured.");
-      setUploading(false);
       return;
     }
 
-    const fileExtension =
-      file.name.split(".").pop()?.toLowerCase() || "jpg";
+    setUploading(true);
+    setMessage("");
 
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2)}.${fileExtension}`;
-
+    const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${extension}`;
     const filePath = `products/${fileName}`;
 
     const { error } = await supabase.storage
@@ -374,7 +125,6 @@ export default function AdminPage() {
       });
 
     if (error) {
-      console.error(error);
       setMessage(`Image upload error: ${error.message}`);
       setUploading(false);
       return;
@@ -384,99 +134,64 @@ export default function AdminPage() {
       .from("product-images")
       .getPublicUrl(filePath);
 
-    const updatedImages = [...images];
-    updatedImages[imageIndex] = data.publicUrl;
+    setImages((current) => {
+      const updated = [...current];
+      updated[index] = data.publicUrl;
+      return updated;
+    });
 
-    setImages(updatedImages);
-
-    setMessage(
-      imageIndex === 0
-        ? "✅ Main photo uploaded!"
-        : `✅ Photo ${imageIndex + 1} uploaded!`
-    );
-
+    setMessage("Image uploaded successfully.");
     setUploading(false);
-
-    event.target.value = "";
   }
 
-  async function addProduct(
-    event: React.FormEvent
-  ) {
-    event.preventDefault();
+  async function saveProduct() {
+    if (!supabase) {
+      setMessage("Supabase is not configured.");
+      return;
+    }
+
+    if (!name.trim()) {
+      setMessage("Please enter a product name.");
+      return;
+    }
 
     setSaving(true);
     setMessage("");
 
-    if (!supabase) {
-      setMessage("Supabase is not configured.");
-      setSaving(false);
-      return;
-    }
-
-    if (!images[0]) {
-      setMessage(
-        "Please take or upload the main photo first."
-      );
-      setSaving(false);
-      return;
-    }
-
-    if (!category) {
-      setMessage("Please select a category.");
-      setSaving(false);
-      return;
-    }
-
-    const { error } = await supabase
-      .from("products")
-      .insert({
-        name,
-        image: images[0],
-        image_2: images[1] || null,
-        image_3: images[2] || null,
-        image_4: images[3] || null,
-        image_5: images[4] || null,
-        image_6: images[5] || null,
-        product_number: productNumber === "" ? null : Number(productNumber),
-        price: Number(price),
-        stock: Number(stock),
-        category,
-        badge: badge || null,
-        description: description || null,
-        is_chase: isChase,
-        is_vaulted: isVaulted,
-        is_exclusive: isExclusive,
-        is_offer: isOffer,
-      });
+    const { error } = await supabase.from("products").insert({
+      name: name.trim(),
+      image: images[0] || null,
+      images,
+      price: Number(price) || 0,
+      stock: Number(stock) || 0,
+      product_number: productNumber.trim() || null,
+      category,
+      badge: badge.trim() || null,
+      description: description.trim() || null,
+      is_chase: isChase,
+      is_vaulted: isVaulted,
+      is_exclusive: isExclusive,
+      is_offer: isOffer,
+    });
 
     if (error) {
-      console.error(error);
-      setMessage(`Error: ${error.message}`);
+      setMessage(`Error saving product: ${error.message}`);
       setSaving(false);
       return;
     }
 
-    setMessage("✅ Product added successfully!");
-
+    setMessage("Product saved successfully.");
     setName("");
     setImages(Array(6).fill(""));
     setPrice("");
     setStock("1");
-    // Keep the current category selected for the next product.
-    // This makes batch uploads much quicker.
-    setCategory(category);
+    setProductNumber("");
     setBadge("");
     setDescription("Condition as shown in photos.");
-
     setIsChase(false);
     setIsVaulted(false);
     setIsExclusive(false);
     setIsOffer(false);
-
-    setShowMoreOptions(false);
-    setShowExtraPhotos(false);
-
     setSaving(false);
   }
 
@@ -486,752 +201,353 @@ export default function AdminPage() {
         minHeight: "100vh",
         background: "#0f172a",
         color: "#ffffff",
-        padding: "20px 12px 50px",
+        padding: "40px 20px 80px",
       }}
     >
       <div
         style={{
-          width: "100%",
-          maxWidth: "700px",
+          maxWidth: "1100px",
           margin: "0 auto",
         }}
       >
-        <h1
-          style={{
-            fontSize: "clamp(30px, 8vw, 42px)",
-            marginBottom: "6px",
-          }}
-        >
-          ➕ Add Product
-        </h1>
-
-        <p
-          style={{
-            color: "#94a3b8",
-            marginBottom: "10px",
-          }}
-        >
-          Add a product quickly from your phone.
-        </p>
-
         <div
           style={{
-            background: "#172554",
-            border: "1px solid #1d4ed8",
-            borderRadius: "12px",
-            padding: "11px 13px",
-            marginBottom: "20px",
-            color: "#bfdbfe",
-            fontSize: "14px",
-            fontWeight: "700",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "20px",
+            flexWrap: "wrap",
+            marginBottom: "30px",
           }}
         >
-          ⚡ Quick upload: your last-used category is remembered
-          for the next product.
+          <div>
+            <h1 style={{ fontSize: "42px", margin: 0 }}>
+              Add Funko Pop
+            </h1>
+            <p style={{ color: "#94a3b8", fontSize: "18px" }}>
+              Add products to your shop.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <a
+              href="/admin/manage"
+              style={{
+                background: "#2563eb",
+                color: "#ffffff",
+                padding: "12px 18px",
+                borderRadius: "8px",
+                textDecoration: "none",
+                fontWeight: "700",
+              }}
+            >
+              Manage Products
+            </a>
+
+            <a
+              href="/admin/orders"
+              style={{
+                background: "#334155",
+                color: "#ffffff",
+                padding: "12px 18px",
+                borderRadius: "8px",
+                textDecoration: "none",
+                fontWeight: "700",
+              }}
+            >
+              Orders
+            </a>
+
+            <a
+              href="/api/ebay/connect"
+              style={{
+                background: "#facc15",
+                color: "#111827",
+                padding: "12px 18px",
+                borderRadius: "8px",
+                textDecoration: "none",
+                fontWeight: "800",
+              }}
+            >
+              🔗 Connect eBay
+            </a>
+          </div>
         </div>
 
-        {/* CATEGORY MANAGER */}
+        {message && (
+          <div
+            style={{
+              background: "#1e293b",
+              border: "1px solid #334155",
+              padding: "14px 18px",
+              borderRadius: "8px",
+              marginBottom: "20px",
+            }}
+          >
+            {message}
+          </div>
+        )}
 
         <section
           style={{
-            background: "#111827",
+            background: "#1e293b",
             border: "1px solid #334155",
-            borderRadius: "18px",
-            padding: "16px",
-            marginBottom: "18px",
+            borderRadius: "14px",
+            padding: "25px",
+            marginBottom: "25px",
           }}
         >
-          <h2
-            style={{
-              margin: "0 0 8px",
-              fontSize: "22px",
-            }}
-          >
-            📂 Categories
-          </h2>
+          <h2>Product Details</h2>
 
-          <p
-            style={{
-              color: "#94a3b8",
-              margin: "0 0 14px",
-            }}
-          >
-            Add, rename or remove product categories.
-          </p>
+          <div style={{ display: "grid", gap: "18px" }}>
+            <label>
+              Product Name
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={inputStyle}
+              />
+            </label>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "1fr auto",
-              gap: "10px",
-            }}
-          >
+            <label>
+              Price (£)
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                style={inputStyle}
+              />
+            </label>
+
+            <label>
+              Stock
+              <input
+                type="number"
+                min="0"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                style={inputStyle}
+              />
+            </label>
+
+            <label>
+              Product Number
+              <input
+                value={productNumber}
+                onChange={(e) => setProductNumber(e.target.value)}
+                style={inputStyle}
+              />
+            </label>
+
+            <label>
+              Category
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                style={inputStyle}
+              >
+                {(categories.length
+                  ? categories.map((item) => item.name)
+                  : [
+                      "Marvel",
+                      "DC",
+                      "Star Wars",
+                      "Anime",
+                      "Movies",
+                      "Television",
+                      "Games",
+                      "Disney",
+                      "Disney Funko",
+                      "Icons",
+                      "Sports",
+                      "Rocks",
+                      "Ad Icons",
+                      "Animation",
+                    ]
+                ).map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Badge
+              <input
+                value={badge}
+                onChange={(e) => setBadge(e.target.value)}
+                style={inputStyle}
+              />
+            </label>
+
+            <label>
+              Description
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                style={{ ...inputStyle, resize: "vertical" }}
+              />
+            </label>
+
+            <div style={{ display: "grid", gap: "10px" }}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={isChase}
+                  onChange={(e) => setIsChase(e.target.checked)}
+                />{" "}
+                Chase
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={isVaulted}
+                  onChange={(e) => setIsVaulted(e.target.checked)}
+                />{" "}
+                Limited Edition
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={isExclusive}
+                  onChange={(e) => setIsExclusive(e.target.checked)}
+                />{" "}
+                Exclusive
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={isOffer}
+                  onChange={(e) => setIsOffer(e.target.checked)}
+                />{" "}
+                Special Edition
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section
+          style={{
+            background: "#1e293b",
+            border: "1px solid #334155",
+            borderRadius: "14px",
+            padding: "25px",
+            marginBottom: "25px",
+          }}
+        >
+          <h2>Product Images</h2>
+
+          <div style={{ display: "grid", gap: "15px" }}>
+            {images.map((image, index) => (
+              <div key={index}>
+                <label>
+                  Image {index + 1}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => uploadImage(event, index)}
+                    style={{ ...inputStyle, padding: "10px" }}
+                  />
+                </label>
+                {image && (
+                  <img
+                    src={image}
+                    alt={`Product ${index + 1}`}
+                    style={{
+                      width: "140px",
+                      height: "140px",
+                      objectFit: "contain",
+                      background: "#ffffff",
+                      borderRadius: "10px",
+                      marginTop: "10px",
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <button
+          type="button"
+          onClick={saveProduct}
+          disabled={saving || uploading}
+          style={{
+            width: "100%",
+            background: "#22c55e",
+            color: "#052e16",
+            border: "none",
+            padding: "16px 20px",
+            borderRadius: "10px",
+            cursor: saving || uploading ? "not-allowed" : "pointer",
+            fontWeight: "800",
+            fontSize: "18px",
+          }}
+        >
+          {saving ? "Saving..." : "Save Product"}
+        </button>
+
+        <section
+          style={{
+            background: "#1e293b",
+            border: "1px solid #334155",
+            borderRadius: "14px",
+            padding: "25px",
+            marginTop: "25px",
+          }}
+        >
+          <h2>Category Manager</h2>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <input
               value={newCategory}
-              onChange={(event) =>
-                setNewCategory(event.target.value)
-              }
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  addCategory();
-                }
-              }}
-              placeholder="New category e.g. Clothing"
-              style={inputStyle}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="New category"
+              style={{ ...inputStyle, flex: "1 1 250px" }}
             />
-
             <button
               type="button"
               onClick={addCategory}
               disabled={categorySaving}
               style={{
+                background: "#2563eb",
+                color: "#ffffff",
                 border: "none",
-                borderRadius: "10px",
-                padding: "0 18px",
-                background: categorySaving
-                  ? "#64748b"
-                  : "#facc15",
-                color: "#111827",
-                fontWeight: "800",
-                cursor: categorySaving
-                  ? "not-allowed"
-                  : "pointer",
+                padding: "12px 18px",
+                borderRadius: "8px",
+                fontWeight: "700",
+                cursor: categorySaving ? "not-allowed" : "pointer",
               }}
             >
-              ➕ Add
+              {categorySaving ? "Adding..." : "Add Category"}
             </button>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gap: "8px",
-              marginTop: "14px",
-            }}
-          >
-            {categories.map((categoryItem) => (
-              <div
-                key={categoryItem.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "10px",
-                  padding: "10px 12px",
-                  background: "#1e293b",
-                  border: "1px solid #334155",
-                  borderRadius: "10px",
-                }}
-              >
-                <span
-                  style={{
-                    fontWeight: "700",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {categoryItem.name}
-                </span>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "7px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      renameCategory(categoryItem)
-                    }
-                    disabled={categorySaving}
-                    style={smallButtonStyle}
-                  >
-                    ✏️
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      deleteCategory(categoryItem)
-                    }
-                    disabled={categorySaving}
-                    style={{
-                      ...smallButtonStyle,
-                      background: "#7f1d1d",
-                    }}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {categories.length === 0 && (
-              <p
-                style={{
-                  color: "#94a3b8",
-                  margin: "8px 0 0",
-                }}
-              >
-                No categories found.
-              </p>
-            )}
-          </div>
-
           {categoryMessage && (
-            <div
-              style={{
-                marginTop: "12px",
-                padding: "12px",
-                borderRadius: "10px",
-                background: "#0f172a",
-                color: "#e2e8f0",
-                fontSize: "14px",
-              }}
-            >
-              {categoryMessage}
-            </div>
+            <p style={{ color: "#cbd5e1" }}>{categoryMessage}</p>
           )}
         </section>
-
-        <form
-          suppressHydrationWarning
-          onSubmit={addProduct}
-          style={{
-            display: "grid",
-            gap: "18px",
-            background: "#111827",
-            padding: "16px",
-            borderRadius: "18px",
-            border: "1px solid #334155",
-          }}
-        >
-          {/* MAIN PHOTO */}
-
-          <div
-            style={{
-              background: "#1e293b",
-              border: "2px solid #facc15",
-              borderRadius: "16px",
-              padding: "16px",
-            }}
-          >
-            <h2
-              style={{
-                margin: "0 0 8px",
-                fontSize: "22px",
-              }}
-            >
-              📸 Product Photo
-            </h2>
-
-            <p
-              style={{
-                color: "#94a3b8",
-                margin: "0 0 14px",
-              }}
-            >
-              Take a photo or choose one from your phone.
-            </p>
-
-            <label
-              style={{
-                display: "block",
-                background: "#facc15",
-                color: "#111827",
-                padding: "19px 12px",
-                borderRadius: "12px",
-                textAlign: "center",
-                fontSize: "19px",
-                fontWeight: "800",
-                cursor: "pointer",
-              }}
-            >
-              📷 TAKE PHOTO / CHOOSE PHOTO
-
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={(event) =>
-                  handleImageUpload(event, 0)
-                }
-                style={{
-                  display: "none",
-                }}
-              />
-            </label>
-
-            {images[0] && (
-              <div
-                style={{
-                  marginTop: "14px",
-                  textAlign: "center",
-                }}
-              >
-                <img
-                  src={images[0]}
-                  alt="Main product"
-                  style={{
-                    width: "100%",
-                    maxWidth: "320px",
-                    height: "260px",
-                    objectFit: "contain",
-                    background: "#ffffff",
-                    borderRadius: "12px",
-                    padding: "8px",
-                  }}
-                />
-
-                <p
-                  style={{
-                    color: "#86efac",
-                    fontWeight: "700",
-                    margin: "10px 0 0",
-                  }}
-                >
-                  ✅ Photo ready
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* PRODUCT NAME */}
-
-          <label>
-            <strong>Product Name</strong>
-
-            <input
-              value={name}
-              onChange={(e) =>
-                setName(e.target.value)
-              }
-              required
-              placeholder="e.g. Rey 434"
-              style={inputStyle}
-            />
-          </label>
-
-          {/* FUNKO PRODUCT NUMBER */}
-
-          <label>
-            <strong>Funko Product Number</strong>
-
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={productNumber}
-              onChange={(e) => setProductNumber(e.target.value)}
-              placeholder="e.g. 123"
-              inputMode="numeric"
-              style={inputStyle}
-            />
-          </label>
-
-          {/* PRICE */}
-
-          <label>
-            <strong>Price (£)</strong>
-
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={price}
-              onChange={(e) =>
-                setPrice(e.target.value)
-              }
-              required
-              placeholder="e.g. 15.00"
-              inputMode="decimal"
-              style={inputStyle}
-            />
-          </label>
-
-          {/* CATEGORY */}
-
-          <label>
-            <strong>Category</strong>
-
-            <select
-              value={category}
-              onChange={(e) => {
-                const nextCategory = e.target.value;
-                setCategory(nextCategory);
-
-                try {
-                  window.localStorage.setItem(
-                    "sparras-admin-last-category",
-                    nextCategory
-                  );
-                } catch {
-                  // Ignore local storage errors.
-                }
-              }}
-              style={inputStyle}
-            >
-              {categories.map((categoryItem) => (
-                <option
-                  key={categoryItem.id}
-                  value={categoryItem.name}
-                >
-                  {categoryItem.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {/* QUICK TAGS */}
-
-          <div>
-            <strong
-              style={{
-                display: "block",
-                marginBottom: "10px",
-              }}
-            >
-              Quick Tags
-            </strong>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(2, minmax(0, 1fr))",
-                gap: "10px",
-              }}
-            >
-              <label style={tagStyle}>
-                <input
-                  type="checkbox"
-                  checked={isChase}
-                  onChange={(e) =>
-                    setIsChase(e.target.checked)
-                  }
-                />
-                🎯 Chase
-              </label>
-
-              <label style={tagStyle}>
-                <input
-                  type="checkbox"
-                  checked={isExclusive}
-                  onChange={(e) =>
-                    setIsExclusive(e.target.checked)
-                  }
-                />
-                ⭐ Exclusive
-              </label>
-
-              <label style={tagStyle}>
-                <input
-                  type="checkbox"
-                  checked={isVaulted}
-                  onChange={(e) =>
-                    setIsVaulted(e.target.checked)
-                  }
-                />
-                🔒 Limited Edition
-              </label>
-
-              <label style={tagStyle}>
-                <input
-                  type="checkbox"
-                  checked={isOffer}
-                  onChange={(e) =>
-                    setIsOffer(e.target.checked)
-                  }
-                />
-                🔥 Special Edition
-              </label>
-            </div>
-          </div>
-
-          {/* EXTRA PHOTOS */}
-
-          <button
-            type="button"
-            onClick={() =>
-              setShowExtraPhotos(!showExtraPhotos)
-            }
-            style={secondaryButtonStyle}
-          >
-            {showExtraPhotos
-              ? "▲ Hide Extra Photos"
-              : "📸 Add Extra Photos"}
-          </button>
-
-          {showExtraPhotos && (
-            <div
-              style={{
-                display: "grid",
-                gap: "12px",
-              }}
-            >
-              <p
-                style={{
-                  color: "#94a3b8",
-                  margin: 0,
-                }}
-              >
-                Optional — add up to 5 more photos.
-              </p>
-
-              {images.slice(1).map(
-                (imageUrl, arrayIndex) => {
-                  const index = arrayIndex + 1;
-
-                  return (
-                    <div
-                      key={index}
-                      style={{
-                        background: "#1e293b",
-                        border: "1px solid #334155",
-                        borderRadius: "12px",
-                        padding: "12px",
-                      }}
-                    >
-                      <label>
-                        <strong>
-                          Photo {index + 1}
-                        </strong>
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={(event) =>
-                            handleImageUpload(
-                              event,
-                              index
-                            )
-                          }
-                          style={{
-                            ...inputStyle,
-                            padding: "10px",
-                          }}
-                        />
-                      </label>
-
-                      {imageUrl && (
-                        <img
-                          src={imageUrl}
-                          alt={`Product photo ${
-                            index + 1
-                          }`}
-                          style={{
-                            width: "100%",
-                            height: "180px",
-                            objectFit: "contain",
-                            background: "#ffffff",
-                            borderRadius: "10px",
-                            padding: "8px",
-                            marginTop: "10px",
-                          }}
-                        />
-                      )}
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          )}
-
-          {/* MORE OPTIONS */}
-
-          <button
-            type="button"
-            onClick={() =>
-              setShowMoreOptions(!showMoreOptions)
-            }
-            style={secondaryButtonStyle}
-          >
-            {showMoreOptions
-              ? "▲ Hide More Options"
-              : "⚙️ More Options"}
-          </button>
-
-          {showMoreOptions && (
-            <div
-              style={{
-                display: "grid",
-                gap: "18px",
-                background: "#1e293b",
-                padding: "15px",
-                borderRadius: "12px",
-              }}
-            >
-              <label>
-                <strong>Stock</strong>
-
-                <input
-                  type="number"
-                  min="0"
-                  value={stock}
-                  onChange={(e) =>
-                    setStock(e.target.value)
-                  }
-                  style={inputStyle}
-                />
-              </label>
-
-              <label>
-                <strong>Badge</strong>
-
-                <input
-                  value={badge}
-                  onChange={(e) =>
-                    setBadge(e.target.value)
-                  }
-                  placeholder="Latest Arrival"
-                  style={inputStyle}
-                />
-              </label>
-
-              <label>
-                <strong>Description</strong>
-
-                <textarea
-                  value={description}
-                  onChange={(e) =>
-                    setDescription(e.target.value)
-                  }
-                  rows={4}
-                  placeholder="Optional product description"
-                  style={{
-                    ...inputStyle,
-                    resize: "vertical",
-                  }}
-                />
-              </label>
-            </div>
-          )}
-
-          {/* UPLOAD MESSAGE */}
-
-          {uploading && (
-            <p
-              style={{
-                color: "#facc15",
-                fontWeight: "700",
-                textAlign: "center",
-                margin: 0,
-              }}
-            >
-              ⏳ Uploading photo...
-            </p>
-          )}
-
-          {/* ADD PRODUCT */}
-
-          <button
-            type="submit"
-            disabled={
-              saving ||
-              uploading ||
-              !images[0] ||
-              !name ||
-              !price ||
-              !category
-            }
-            style={{
-              padding: "20px 16px",
-              border: "none",
-              borderRadius: "13px",
-              background:
-                saving ||
-                uploading ||
-                !images[0] ||
-                !name ||
-                !price ||
-                !category
-                  ? "#64748b"
-                  : "#facc15",
-              color: "#111827",
-              fontSize: "20px",
-              fontWeight: "900",
-              cursor:
-                saving ||
-                uploading ||
-                !images[0] ||
-                !name ||
-                !price ||
-                !category
-                  ? "not-allowed"
-                  : "pointer",
-            }}
-          >
-            {saving
-              ? "ADDING PRODUCT..."
-              : "➕ ADD PRODUCT"}
-          </button>
-
-          {message && (
-            <div
-              style={{
-                padding: "15px",
-                borderRadius: "10px",
-                background: "#1e293b",
-                textAlign: "center",
-                fontWeight: "700",
-              }}
-            >
-              {message}
-            </div>
-          )}
-        </form>
       </div>
     </main>
   );
 }
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   display: "block",
   width: "100%",
+  boxSizing: "border-box",
   marginTop: "8px",
-  padding: "14px",
-  borderRadius: "10px",
-  border: "1px solid #334155",
-  background: "#1e293b",
+  padding: "12px 14px",
+  background: "#0f172a",
   color: "#ffffff",
-  fontSize: "17px",
-  boxSizing: "border-box" as const,
-};
-
-const tagStyle = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  padding: "13px 10px",
-  background: "#1e293b",
-  border: "1px solid #334155",
-  borderRadius: "10px",
-  fontSize: "16px",
-};
-
-const secondaryButtonStyle = {
-  width: "100%",
-  padding: "15px",
   border: "1px solid #475569",
-  borderRadius: "10px",
-  background: "#1e293b",
-  color: "#ffffff",
-  fontSize: "16px",
-  fontWeight: "700",
-  cursor: "pointer",
-};
-
-const smallButtonStyle = {
-  border: "none",
   borderRadius: "8px",
-  padding: "8px 10px",
-  background: "#334155",
-  color: "#ffffff",
-  fontSize: "15px",
-  cursor: "pointer",
+  fontSize: "16px",
 };
-
