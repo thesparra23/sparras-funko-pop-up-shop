@@ -170,9 +170,7 @@ async function syncProductToEbay(accessToken: string, product: any) {
         requests: [
           {
             sku,
-            shipToLocationAvailability: {
-              quantity,
-            },
+            shipToLocationAvailability: { quantity },
             offers: [
               {
                 offerId: publishedOffer.offerId,
@@ -213,15 +211,16 @@ async function syncProductToEbay(accessToken: string, product: any) {
   };
 }
 
-async function syncWebsiteStockToEbay(accessToken: string, productId?: string) {
+async function syncWebsiteStockToEbay(
+  accessToken: string,
+  productId?: string
+) {
   let query = supabase
     .from("products")
     .select("id, name, stock")
     .order("created_at", { ascending: false });
 
-  if (productId) {
-    query = query.eq("id", productId);
-  }
+  if (productId) query = query.eq("id", productId);
 
   const { data: products, error } = await query;
   if (error) throw error;
@@ -234,8 +233,78 @@ async function syncWebsiteStockToEbay(accessToken: string, productId?: string) {
   return results;
 }
 
-async function syncEbayOrdersToWebsite(accessToken: string) {
-  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+async function syncEbayStockToWebsite(accessToken: string) {
+  const { data: products, error } = await supabase
+    .from("products")
+    .select("id, name, stock")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  const results = [];
+
+  for (const product of products || []) {
+    const sku = getSku(String(product.id));
+    const offersResponse = await ebayRequest(
+      accessToken,
+      `/sell/inventory/v1/offer?sku=${encodeURIComponent(sku)}&marketplace_id=${MARKETPLACE_ID}`
+    );
+
+    if (!offersResponse.response.ok) {
+      results.push({
+        success: false,
+        productId: String(product.id),
+        message: "Could not retrieve the eBay offer.",
+      });
+      continue;
+    }
+
+    const offers = Array.isArray(offersResponse.data?.offers)
+      ? offersResponse.data.offers
+      : [];
+    const publishedOffer = offers.find(
+      (offer: any) => offer?.status === "PUBLISHED" && offer?.offerId
+    );
+
+    if (!publishedOffer) continue;
+
+    const ebayQuantity = Math.max(
+      0,
+      Number(publishedOffer.availableQuantity ?? 0)
+    );
+    const websiteQuantity = Number(product.stock || 0);
+
+    if (websiteQuantity !== ebayQuantity) {
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({ stock: ebayQuantity })
+        .eq("id", product.id);
+
+      if (updateError) {
+        results.push({
+          success: false,
+          productId: String(product.id),
+          message: `Could not update website stock: ${updateError.message}`,
+        });
+        continue;
+      }
+    }
+
+    results.push({
+      success: true,
+      productId: String(product.id),
+      previousWebsiteQuantity: websiteQuantity,
+      ebayQuantity,
+      changed: websiteQuantity !== ebayQuantity,
+      listingId: publishedOffer?.listing?.listingId || null,
+    });
+  }
+
+  return results;
+}
+
+async function importRecentEbayOrders(accessToken: string) {
+  const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
   const filter = encodeURIComponent(`creationdate:[${since}..]`);
 
   const ordersResponse = await ebayRequest(
@@ -279,27 +348,10 @@ async function syncEbayOrdersToWebsite(accessToken: string) {
       continue;
     }
 
-    const shipTo = ebayOrder?.fulfillmentStartInstructions?.[0]?.shippingStep?.shipTo;
-    const contactAddress = shipTo?.contactAddress || {};
-    const customerName =
-      shipTo?.fullName ||
-      shipTo?.contactAddress?.fullName ||
-      ebayOrder?.buyer?.username ||
-      "eBay Customer";
-
-    const customerEmail = shipTo?.email || "";
-    const total = Number(ebayOrder?.pricingSummary?.total?.value || 0);
-
     const lineItems = Array.isArray(ebayOrder?.lineItems)
       ? ebayOrder.lineItems
       : [];
-
-    const resolvedItems: Array<{
-      productId: string;
-      name: string;
-      quantity: number;
-      price: number;
-    }> = [];
+    const resolvedItems = [];
 
     for (const lineItem of lineItems) {
       const sku = String(lineItem?.sku || "");
@@ -308,27 +360,25 @@ async function syncEbayOrdersToWebsite(accessToken: string) {
         : "";
       const quantity = Math.max(1, Number(lineItem?.quantity || 1));
 
-      if (!productId) {
-        skipped += 1;
-        continue;
-      }
+      if (!productId) continue;
 
-      const { data: product, error: productError } = await supabase
+      const { data: product } = await supabase
         .from("products")
-        .select("id, name, stock, price")
+        .select("id, name, price")
         .eq("id", productId)
         .maybeSingle();
 
-      if (productError || !product) {
+      if (!product) {
         errors.push(`Order ${orderId}: product ${productId} could not be found.`);
         continue;
       }
 
       const lineTotal = Number(lineItem?.lineItemCost?.value || 0);
-      const unitPrice = quantity > 0 ? lineTotal / quantity : Number(product.price || 0);
+      const unitPrice = quantity > 0
+        ? lineTotal / quantity
+        : Number(product.price || 0);
 
       resolvedItems.push({
-        productId,
         name: String(product.name),
         quantity,
         price: unitPrice,
@@ -339,6 +389,12 @@ async function syncEbayOrdersToWebsite(accessToken: string) {
       skipped += 1;
       continue;
     }
+
+    const shipTo =
+      ebayOrder?.fulfillmentStartInstructions?.[0]?.shippingStep?.shipTo;
+    const customerName = shipTo?.fullName || ebayOrder?.buyer?.username || "eBay Customer";
+    const customerEmail = shipTo?.email || "";
+    const total = Number(ebayOrder?.pricingSummary?.total?.value || 0);
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -359,69 +415,66 @@ async function syncEbayOrdersToWebsite(accessToken: string) {
       continue;
     }
 
-    const orderItems = resolvedItems.map((item) => ({
-      order_id: order.id,
-      product_name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems);
+    const { error: itemsError } = await supabase.from("order_items").insert(
+      resolvedItems.map((item) => ({
+        order_id: order.id,
+        product_name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }))
+    );
 
     if (itemsError) {
       errors.push(`Order ${orderId}: ${itemsError.message}`);
       continue;
     }
 
-    for (const item of resolvedItems) {
-      const { data: currentProduct } = await supabase
-        .from("products")
-        .select("stock")
-        .eq("id", item.productId)
-        .single();
-
-      const currentStock = Number(currentProduct?.stock || 0);
-      const newStock = Math.max(0, currentStock - item.quantity);
-
-      const { error: stockError } = await supabase
-        .from("products")
-        .update({ stock: newStock })
-        .eq("id", item.productId);
-
-      if (stockError) {
-        errors.push(`Order ${orderId}: could not update stock for ${item.name}: ${stockError.message}`);
-      }
-    }
-
     imported += 1;
   }
 
-  return {
-    imported,
-    alreadyKnown,
-    skipped,
-    errors,
-  };
+  return { imported, alreadyKnown, skipped, errors };
 }
 
 async function handleSync(request: NextRequest) {
   const accessToken = await getEbayAccessToken();
-  const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
-  const productId = typeof body?.productId === "string" ? body.productId : undefined;
+  const body =
+    request.method === "POST"
+      ? await request.json().catch(() => ({}))
+      : {};
+  const productId =
+    typeof body?.productId === "string" ? body.productId : undefined;
   const ordersOnly = body?.ordersOnly === true;
+  const ebayToWebsite = body?.ebayToWebsite === true;
 
-  const orders = await syncEbayOrdersToWebsite(accessToken);
-  const stock = ordersOnly
-    ? []
-    : await syncWebsiteStockToEbay(accessToken, productId);
+  if (productId) {
+    const stock = await syncWebsiteStockToEbay(accessToken, productId);
+    return NextResponse.json({
+      success: true,
+      stock,
+      message: "Website stock sent to eBay successfully.",
+    });
+  }
+
+  if (ebayToWebsite || request.method === "GET") {
+    const stock = await syncEbayStockToWebsite(accessToken);
+    const orders = ordersOnly ? null : await importRecentEbayOrders(accessToken);
+
+    return NextResponse.json({
+      success: true,
+      stock,
+      orders,
+      message: "eBay stock reconciled with the website.",
+    });
+  }
+
+  const stock = await syncWebsiteStockToEbay(accessToken);
+  const orders = ordersOnly ? null : await importRecentEbayOrders(accessToken);
 
   return NextResponse.json({
     success: true,
-    orders,
     stock,
-    message: `eBay sync complete. Imported ${orders.imported} new eBay order${orders.imported === 1 ? "" : "s"}.`,
+    orders,
+    message: "Website stock sent to eBay successfully.",
   });
 }
 
