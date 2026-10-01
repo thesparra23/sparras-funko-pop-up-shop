@@ -41,10 +41,10 @@ export default function ManageProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [editingProduct, setEditingProduct] =
-    useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [listingProductId, setListingProductId] = useState<string | null>(null);
 
   async function loadProducts() {
     setLoading(true);
@@ -69,7 +69,6 @@ export default function ManageProductsPage() {
 
   async function deleteProduct(id: string) {
     const product = products.find((p) => p.id === id);
-
     if (!product) return;
 
     const confirmed = window.confirm(
@@ -78,21 +77,71 @@ export default function ManageProductsPage() {
 
     if (!confirmed) return;
 
-    const { error } = await db
-      .from("products")
-      .delete()
-      .eq("id", id);
+    const { error } = await db.from("products").delete().eq("id", id);
 
     if (error) {
       setMessage(`Error deleting product: ${error.message}`);
       return;
     }
 
-    setProducts((current) =>
-      current.filter((product) => product.id !== id)
+    setProducts((current) => current.filter((item) => item.id !== id));
+    setMessage("Product deleted successfully.");
+  }
+
+  async function listOnEbay(product: Product) {
+    if (listingProductId) return;
+
+    if (!product.image) {
+      setMessage("❌ This product needs an image before it can be listed on eBay.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `List "${product.name}" on eBay for £${Number(product.price).toFixed(2)}?\n\nStock: ${product.stock}`
     );
 
-    setMessage("Product deleted successfully.");
+    if (!confirmed) return;
+
+    setListingProductId(product.id);
+    setMessage(`⏳ Listing "${product.name}" on eBay...`);
+
+    try {
+      const response = await fetch("/api/ebay/list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ productId: product.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const detail = data?.details?.errors?.[0]?.longMessage ||
+          data?.details?.errors?.[0]?.message ||
+          data?.error ||
+          "eBay could not publish this listing.";
+
+        setMessage(`❌ ${detail}`);
+        return;
+      }
+
+      setMessage(`✅ ${data.message || "Listed on eBay successfully."}`);
+
+      if (data.listingId) {
+        window.open(
+          `https://www.ebay.co.uk/itm/${data.listingId}`,
+          "_blank",
+          "noopener,noreferrer"
+        );
+      }
+    } catch (error) {
+      setMessage(
+        `❌ ${error instanceof Error ? error.message : "Unexpected eBay error."}`
+      );
+    } finally {
+      setListingProductId(null);
+    }
   }
 
   async function saveProduct() {
@@ -126,9 +175,7 @@ export default function ManageProductsPage() {
 
     setProducts((current) =>
       current.map((product) =>
-        product.id === editingProduct.id
-          ? editingProduct
-          : product
+        product.id === editingProduct.id ? editingProduct : product
       )
     );
 
@@ -143,19 +190,13 @@ export default function ManageProductsPage() {
     if (!editingProduct) return;
 
     const file = event.target.files?.[0];
-
     if (!file) return;
 
     setUploading(true);
     setMessage("");
 
-    const extension =
-      file.name.split(".").pop()?.toLowerCase() || "png";
-
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2)}.${extension}`;
-
+    const extension = file.name.split(".").pop()?.toLowerCase() || "png";
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${extension}`;
     const filePath = `products/${fileName}`;
 
     const { error } = await db.storage
@@ -171,9 +212,7 @@ export default function ManageProductsPage() {
       return;
     }
 
-    const { data } = db.storage
-      .from("product-images")
-      .getPublicUrl(filePath);
+    const { data } = db.storage.from("product-images").getPublicUrl(filePath);
 
     setEditingProduct({
       ...editingProduct,
@@ -209,12 +248,7 @@ export default function ManageProductsPage() {
         padding: "40px 30px 80px",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-        }}
-      >
+      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
         <div
           style={{
             display: "flex",
@@ -226,22 +260,8 @@ export default function ManageProductsPage() {
           }}
         >
           <div>
-            <h1
-              style={{
-                fontSize: "42px",
-                margin: 0,
-              }}
-            >
-              📦 Manage Funko Pops
-            </h1>
-
-            <p
-              style={{
-                color: "#94a3b8",
-                fontSize: "18px",
-                marginTop: "10px",
-              }}
-            >
+            <h1 style={{ fontSize: "42px", margin: 0 }}>📦 Manage Funko Pops</h1>
+            <p style={{ color: "#94a3b8", fontSize: "18px", marginTop: "10px" }}>
               Edit, update or remove your products.
             </p>
           </div>
@@ -285,22 +305,10 @@ export default function ManageProductsPage() {
             }}
           >
             <h2>No products found</h2>
-
-            <p
-              style={{
-                color: "#94a3b8",
-              }}
-            >
-              Add your first Funko Pop.
-            </p>
+            <p style={{ color: "#94a3b8" }}>Add your first Funko Pop.</p>
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: "18px",
-            }}
-          >
+          <div style={{ display: "grid", gap: "18px" }}>
             {products.map((product) => (
               <div
                 key={product.id}
@@ -331,11 +339,7 @@ export default function ManageProductsPage() {
                     <img
                       src={product.image}
                       alt={product.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                      }}
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
                     />
                   ) : (
                     <span>No image</span>
@@ -343,47 +347,23 @@ export default function ManageProductsPage() {
                 </div>
 
                 <div>
-                  <h2
-                    style={{
-                      margin: "0 0 8px",
-                      fontSize: "22px",
-                    }}
-                  >
+                  <h2 style={{ margin: "0 0 8px", fontSize: "22px" }}>
                     {product.name}
                   </h2>
 
-                  <div
-                    style={{
-                      color: "#94a3b8",
-                      marginBottom: "12px",
-                    }}
-                  >
+                  <div style={{ color: "#94a3b8", marginBottom: "12px" }}>
                     Category: {product.category || "None"}
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "10px",
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                     {product.is_chase && <span>🎯 Chase</span>}
                     {product.is_vaulted && <span>🔒 Vaulted</span>}
                     {product.is_exclusive && <span>⭐ Exclusive</span>}
                     {product.is_offer && <span>🔥 Offer</span>}
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: "12px",
-                      color: "#ffffff",
-                    }}
-                  >
-                    <strong>
-                      £{Number(product.price).toFixed(2)}
-                    </strong>{" "}
-                    • Stock: {product.stock}
+                  <div style={{ marginTop: "12px", color: "#ffffff" }}>
+                    <strong>£{Number(product.price).toFixed(2)}</strong> • Stock: {product.stock}
                   </div>
                 </div>
 
@@ -392,13 +372,30 @@ export default function ManageProductsPage() {
                     display: "flex",
                     flexDirection: "column",
                     gap: "10px",
+                    minWidth: "150px",
                   }}
                 >
                   <button
                     type="button"
-                    onClick={() =>
-                      setEditingProduct({ ...product })
-                    }
+                    onClick={() => listOnEbay(product)}
+                    disabled={listingProductId !== null}
+                    style={{
+                      background:
+                        listingProductId === product.id ? "#64748b" : "#facc15",
+                      color: "#111827",
+                      border: "none",
+                      padding: "12px 18px",
+                      borderRadius: "8px",
+                      cursor: listingProductId !== null ? "not-allowed" : "pointer",
+                      fontWeight: "700",
+                    }}
+                  >
+                    {listingProductId === product.id ? "⏳ Listing..." : "🛒 List on eBay"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct({ ...product })}
                     style={{
                       background: "#2563eb",
                       color: "#ffffff",
@@ -456,36 +453,19 @@ export default function ManageProductsPage() {
               border: "1px solid #334155",
               borderRadius: "18px",
               padding: "30px",
-              margin: "0",
               maxHeight: "calc(100vh - 40px)",
               overflowY: "auto",
             }}
           >
-            <h2
-              style={{
-                fontSize: "30px",
-                marginTop: 0,
-              }}
-            >
-              ✏️ Edit Product
-            </h2>
+            <h2 style={{ fontSize: "30px", marginTop: 0 }}>✏️ Edit Product</h2>
 
-            <div
-              style={{
-                display: "grid",
-                gap: "18px",
-              }}
-            >
+            <div style={{ display: "grid", gap: "18px" }}>
               <label>
                 Product Name
-
                 <input
                   value={editingProduct.name}
                   onChange={(e) =>
-                    setEditingProduct({
-                      ...editingProduct,
-                      name: e.target.value,
-                    })
+                    setEditingProduct({ ...editingProduct, name: e.target.value })
                   }
                   style={inputStyle}
                 />
@@ -493,15 +473,11 @@ export default function ManageProductsPage() {
 
               <label>
                 Product Image
-
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
-                  style={{
-                    ...inputStyle,
-                    padding: "10px",
-                  }}
+                  style={{ ...inputStyle, padding: "10px" }}
                 />
               </label>
 
@@ -520,19 +496,10 @@ export default function ManageProductsPage() {
                 />
               )}
 
-              {uploading && (
-                <p
-                  style={{
-                    color: "#facc15",
-                  }}
-                >
-                  Uploading image...
-                </p>
-              )}
+              {uploading && <p style={{ color: "#facc15" }}>Uploading image...</p>}
 
               <label>
                 Price (£)
-
                 <input
                   type="number"
                   step="0.01"
@@ -550,7 +517,6 @@ export default function ManageProductsPage() {
 
               <label>
                 Stock
-
                 <input
                   type="number"
                   min="0"
@@ -567,7 +533,6 @@ export default function ManageProductsPage() {
 
               <label>
                 Category
-
                 <select
                   value={editingProduct.category || "Marvel"}
                   onChange={(e) =>
@@ -579,10 +544,7 @@ export default function ManageProductsPage() {
                   style={inputStyle}
                 >
                   {categories.map((category) => (
-                    <option
-                      key={category}
-                      value={category}
-                    >
+                    <option key={category} value={category}>
                       {category}
                     </option>
                   ))}
@@ -591,7 +553,6 @@ export default function ManageProductsPage() {
 
               <label>
                 Badge
-
                 <input
                   value={editingProduct.badge || ""}
                   onChange={(e) =>
@@ -607,7 +568,6 @@ export default function ManageProductsPage() {
 
               <label>
                 Description
-
                 <textarea
                   value={editingProduct.description || ""}
                   onChange={(e) =>
@@ -617,19 +577,11 @@ export default function ManageProductsPage() {
                     })
                   }
                   rows={4}
-                  style={{
-                    ...inputStyle,
-                    resize: "vertical",
-                  }}
+                  style={{ ...inputStyle, resize: "vertical" }}
                 />
               </label>
 
-              <div
-                style={{
-                  display: "grid",
-                  gap: "12px",
-                }}
-              >
+              <div style={{ display: "grid", gap: "12px" }}>
                 <label>
                   <input
                     type="checkbox"
@@ -687,13 +639,7 @@ export default function ManageProductsPage() {
                 </label>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  marginTop: "10px",
-                }}
-              >
+              <div style={{ display: "flex", gap: "12px", marginTop: "10px" }}>
                 <button
                   type="button"
                   onClick={() => setEditingProduct(null)}
@@ -720,21 +666,13 @@ export default function ManageProductsPage() {
                     padding: "14px",
                     border: "none",
                     borderRadius: "10px",
-                    background:
-                      saving || uploading
-                        ? "#64748b"
-                        : "#facc15",
+                    background: saving || uploading ? "#64748b" : "#facc15",
                     color: "#111827",
                     fontWeight: "700",
-                    cursor:
-                      saving || uploading
-                        ? "not-allowed"
-                        : "pointer",
+                    cursor: saving || uploading ? "not-allowed" : "pointer",
                   }}
                 >
-                  {saving
-                    ? "Saving..."
-                    : "💾 Save Changes"}
+                  {saving ? "Saving..." : "💾 Save Changes"}
                 </button>
               </div>
             </div>
