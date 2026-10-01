@@ -16,6 +16,39 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+async function syncProductToEbay(
+  request: Request,
+  productId: string
+) {
+  try {
+    const host =
+      request.headers.get("x-forwarded-host") ||
+      request.headers.get("host");
+
+    if (!host) return;
+
+    const protocol =
+      request.headers.get("x-forwarded-proto") || "https";
+
+    await fetch(
+      `${protocol}://${host}/api/ebay/sync`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ productId }),
+        cache: "no-store",
+      }
+    );
+  } catch (error) {
+    console.error(
+      `Could not sync product ${productId} to eBay:`,
+      error
+    );
+  }
+}
+
 export async function POST(request: Request) {
   const body = await request.text();
 
@@ -134,25 +167,101 @@ export async function POST(request: Request) {
 
       const lineItems =
         await stripe.checkout.sessions.listLineItems(
-          session.id
+          session.id,
+          {
+            limit: 100,
+            expand: ["data.price.product"],
+          }
         );
 
-      const orderItems =
-        lineItems.data.map((item) => ({
+      const stockSyncs: Promise<void>[] = [];
+
+      const orderItems = [];
+
+      for (const item of lineItems.data) {
+        const quantity = item.quantity || 1;
+        const product =
+          item.price?.product &&
+          typeof item.price.product !== "string"
+            ? item.price.product as Stripe.Product
+            : null;
+
+        const productId =
+          product?.metadata?.sparra_product_id ||
+          "";
+
+        orderItems.push({
           order_id:
             order.id,
 
           product_name:
             item.description ||
+            product?.name ||
             "Funko Pop",
 
-          quantity:
-            item.quantity || 1,
+          quantity,
 
           price:
             (item.amount_total || 0) /
             100,
-        }));
+        });
+
+        if (!productId) {
+          console.warn(
+            "No Sparra product ID found for Stripe line item:",
+            item.description
+          );
+          continue;
+        }
+
+        const { data: currentProduct, error: productError } =
+          await supabase
+            .from("products")
+            .select("id, stock")
+            .eq("id", productId)
+            .maybeSingle();
+
+        if (productError || !currentProduct) {
+          console.error(
+            `Could not find product ${productId} to reduce stock:`,
+            productError
+          );
+          continue;
+        }
+
+        const currentStock =
+          Number(currentProduct.stock || 0);
+
+        const newStock = Math.max(
+          0,
+          currentStock - quantity
+        );
+
+        const { error: stockError } =
+          await supabase
+            .from("products")
+            .update({ stock: newStock })
+            .eq("id", productId);
+
+        if (stockError) {
+          console.error(
+            `Could not update stock for product ${productId}:`,
+            stockError
+          );
+          continue;
+        }
+
+        console.log(
+          `Stock updated for ${productId}: ${currentStock} -> ${newStock}`
+        );
+
+        stockSyncs.push(
+          syncProductToEbay(
+            request,
+            productId
+          )
+        );
+      }
 
       if (orderItems.length > 0) {
         const {
@@ -170,6 +279,8 @@ export async function POST(request: Request) {
           throw itemsError;
         }
       }
+
+      await Promise.allSettled(stockSyncs);
 
       console.log(
         "Order created successfully:",
