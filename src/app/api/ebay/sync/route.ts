@@ -498,9 +498,17 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      return NextResponse.json(
+        { error: "CRON_SECRET is not configured." },
+        { status: 503 }
+      );
+    }
+
     const authorization = request.headers.get("authorization");
 
-    if (cronSecret && authorization !== `Bearer ${cronSecret}`) {
+    if (authorization !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
