@@ -11,6 +11,7 @@ const links = [
 export default function AdminNav() {
   return (
     <nav
+      data-admin-navigation="true"
       style={{
         position: "sticky",
         top: 0,
