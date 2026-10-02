@@ -253,16 +253,9 @@ export async function POST(request: NextRequest) {
         fulfillmentPolicyId,
         paymentPolicyId,
         returnPolicyId,
+        bestOfferTerms: { bestOfferEnabled: true },
       },
     };
-
-    // Products marked "Offer" on the website will have eBay Best Offer enabled.
-    // eBay's Inventory API expects this under listingPolicies.bestOfferTerms.
-    if (product.is_offer === true) {
-      offerPayload.listingPolicies.bestOfferTerms = {
-        bestOfferEnabled: true,
-      };
-    }
 
     let offerId: string | null = null;
 
@@ -306,7 +299,7 @@ export async function POST(request: NextRequest) {
       success: true,
       listingId,
       offerId,
-      bestOfferEnabled: product.is_offer === true,
+      bestOfferEnabled: true,
       message: listingId ? `Listed on eBay successfully. Listing ID: ${listingId}` : "Listed on eBay successfully.",
     });
   } catch (error) {
