@@ -5,6 +5,7 @@ const links = [
   { href: "/admin/manage", label: "📦 Manage Products" },
   { href: "/admin/orders", label: "🛒 Orders" },
   { href: "/admin/ebay-sync", label: "🔄 eBay Stock Sync" },
+  { href: "/admin/best-offer", label: "🏷️ eBay Best Offer" },
 ];
 
 export default function AdminNav() {
