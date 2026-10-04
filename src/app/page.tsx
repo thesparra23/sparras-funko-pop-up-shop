@@ -379,9 +379,77 @@ export default function Home() {
           .filter(Boolean)
           .filter((token) => token !== "funko" && token !== "pop");
 
-        return tokens.every((token) =>
-          searchableText.includes(token)
-        );
+        const searchAliases: Record<string, string[]> = {
+          masters: [
+            "masters",
+            "master",
+            "masters of the universe",
+            "master of the universe",
+            "motu",
+            "he-man",
+            "he man",
+            "heman",
+            "skeletor",
+            "eternia",
+            "grayskull",
+          ],
+          master: [
+            "masters",
+            "master",
+            "masters of the universe",
+            "master of the universe",
+            "motu",
+            "he-man",
+            "he man",
+            "heman",
+            "skeletor",
+            "eternia",
+            "grayskull",
+          ],
+          motu: [
+            "masters",
+            "masters of the universe",
+            "motu",
+            "he-man",
+            "he man",
+            "heman",
+            "skeletor",
+            "eternia",
+            "grayskull",
+          ],
+          heman: [
+            "he-man",
+            "he man",
+            "heman",
+            "masters",
+            "masters of the universe",
+            "motu",
+          ],
+          "he-man": [
+            "he-man",
+            "he man",
+            "heman",
+            "masters",
+            "masters of the universe",
+            "motu",
+          ],
+        };
+
+        return tokens.every((token) => {
+          if (searchableText.includes(token)) {
+            return true;
+          }
+
+          const aliases = searchAliases[token];
+
+          if (!aliases) {
+            return false;
+          }
+
+          return aliases.some((alias) =>
+            searchableText.includes(alias)
+          );
+        });
       })
       .filter((product) =>
         inStockOnly ? product.stock > 0 : true
