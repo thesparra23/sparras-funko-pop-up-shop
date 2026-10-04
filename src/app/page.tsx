@@ -21,6 +21,7 @@ type Product = {
   badge?: string | null;
   stock: number;
   category?: string | null;
+  productNumber?: string | number | null;
   is_chase?: boolean;
   is_vaulted?: boolean;
   is_exclusive?: boolean;
@@ -116,6 +117,7 @@ export default function Home() {
           badge,
           stock,
           category,
+          productNumber,
           is_chase,
           is_vaulted,
           is_exclusive,
@@ -349,11 +351,38 @@ export default function Home() {
 
   const filteredProducts =
     getCategoryProducts()
-      .filter((product) =>
-        product.name
-          .toLowerCase()
-          .includes(search.toLowerCase())
-      )
+      .filter((product) => {
+        const query = search
+          .trim()
+          .toLowerCase();
+
+        if (!query) return true;
+
+        const searchableText = [
+          product.name,
+          product.productNumber,
+          product.category,
+          product.badge,
+        ]
+          .filter(
+            (value) =>
+              value !== null &&
+              value !== undefined &&
+              String(value).trim() !== ""
+          )
+          .map((value) => String(value).toLowerCase())
+          .join(" ");
+
+        const tokens = query
+          .split(/\s+/)
+          .map((token) => token.trim())
+          .filter(Boolean)
+          .filter((token) => token !== "funko" && token !== "pop");
+
+        return tokens.every((token) =>
+          searchableText.includes(token)
+        );
+      })
       .filter((product) =>
         inStockOnly ? product.stock > 0 : true
       )
