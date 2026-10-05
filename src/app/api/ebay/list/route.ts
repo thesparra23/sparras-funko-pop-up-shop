@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         availability: { shipToLocationAvailability: { quantity: availableQuantity } },
         condition: "NEW",
-        product: { title: String(product.name).slice(0, 80), description, imageUrls: [product.image], aspects },
+        product: {\n          title: String(product.name).slice(0, 80),\n          description,\n          imageUrls: [product.image, product.image_2, product.image_3, product.image_4, product.image_5, product.image_6].filter(Boolean),\n          aspects,\n        },
       }),
     });
 
