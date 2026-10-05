@@ -8,6 +8,16 @@ export default function EbaySyncPage() {
   const [details, setDetails] = useState<any>(null);
   const [resyncingImages, setResyncingImages] = useState(false);
 
+  async function readResponse(response: Response) {
+    const text = await response.text();
+    if (!text) return {};
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { error: text.slice(0, 500) };
+    }
+  }
+
   async function resyncImages() {
     if (resyncingImages || syncing) return;
     if (!window.confirm("Update the photos on all your existing eBay listings using the photos saved on the website?\n\nThis will not create new listings or change prices/stock.")) return;
@@ -15,14 +25,23 @@ export default function EbaySyncPage() {
     setMessage("⏳ Updating photos on existing eBay listings...");
     setDetails(null);
     try {
-      const response = await fetch("/api/ebay/resync-images", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok) { setMessage(`❌ ${data?.error || "eBay photo resync failed."}`); return; }
+      const response = await fetch("/api/ebay/resync-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+      const data = await readResponse(response);
+      if (!response.ok) {
+        setMessage(`❌ ${data?.error || "eBay photo resync failed."}`);
+        return;
+      }
       setDetails(data);
       setMessage(`✅ Photo resync complete. ${data.updated || 0} listing${data.updated === 1 ? "" : "s"} updated, ${data.skipped || 0} skipped and ${data.failed || 0} failed.`);
     } catch (error) {
       setMessage(`❌ ${error instanceof Error ? error.message : "Unexpected photo resync error."}`);
-    } finally { setResyncingImages(false); }
+    } finally {
+      setResyncingImages(false);
+    }
   }
 
   async function syncNow() {
@@ -35,14 +54,12 @@ export default function EbaySyncPage() {
     try {
       const response = await fetch("/api/ebay/sync", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ebayToWebsite: true }),
         cache: "no-store",
       });
 
-      const data = await response.json();
+      const data = await readResponse(response);
 
       if (!response.ok) {
         setMessage(`❌ ${data?.error || "eBay sync failed."}`);
@@ -137,7 +154,17 @@ export default function EbaySyncPage() {
             type="button"
             onClick={resyncImages}
             disabled={syncing || resyncingImages}
-            style={{ marginTop: "12px", background: resyncingImages ? "#64748b" : "#22c55e", color: "#ffffff", border: "none", padding: "15px 24px", borderRadius: "10px", fontSize: "17px", fontWeight: "800", cursor: syncing || resyncingImages ? "not-allowed" : "pointer" }}
+            style={{
+              marginTop: "12px",
+              background: resyncingImages ? "#64748b" : "#22c55e",
+              color: "#ffffff",
+              border: "none",
+              padding: "15px 24px",
+              borderRadius: "10px",
+              fontSize: "17px",
+              fontWeight: "800",
+              cursor: syncing || resyncingImages ? "not-allowed" : "pointer",
+            }}
           >
             {resyncingImages ? "⏳ Updating eBay photos..." : "📸 Update All eBay Photos"}
           </button>
