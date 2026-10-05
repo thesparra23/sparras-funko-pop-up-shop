@@ -226,12 +226,26 @@ export async function POST(request: NextRequest) {
     const aspects: Record<string, string[]> = { Brand: ["Funko"], Type: ["Vinyl Figure"], "Product Line": ["Pop!"] };
     if (product.category) aspects.Collection = [product.category];
 
+    const imageUrls = [
+      product.image,
+      product.image_2,
+      product.image_3,
+      product.image_4,
+      product.image_5,
+      product.image_6,
+    ].filter(Boolean);
+
     const inventoryResponse = await ebayRequest(accessToken, `/sell/inventory/v1/inventory_item/${encodeURIComponent(sku)}`, {
       method: "PUT",
       body: JSON.stringify({
         availability: { shipToLocationAvailability: { quantity: availableQuantity } },
         condition: "NEW",
-        product: {\n          title: String(product.name).slice(0, 80),\n          description,\n          imageUrls: [product.image, product.image_2, product.image_3, product.image_4, product.image_5, product.image_6].filter(Boolean),\n          aspects,\n        },
+        product: {
+          title: String(product.name).slice(0, 80),
+          description,
+          imageUrls,
+          aspects,
+        },
       }),
     });
 
