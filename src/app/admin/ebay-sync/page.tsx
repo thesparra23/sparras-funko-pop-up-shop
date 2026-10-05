@@ -6,6 +6,24 @@ export default function EbaySyncPage() {
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState("");
   const [details, setDetails] = useState<any>(null);
+  const [resyncingImages, setResyncingImages] = useState(false);
+
+  async function resyncImages() {
+    if (resyncingImages || syncing) return;
+    if (!window.confirm("Update the photos on all your existing eBay listings using the photos saved on the website?\n\nThis will not create new listings or change prices/stock.")) return;
+    setResyncingImages(true);
+    setMessage("⏳ Updating photos on existing eBay listings...");
+    setDetails(null);
+    try {
+      const response = await fetch("/api/ebay/resync-images", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) { setMessage(`❌ ${data?.error || "eBay photo resync failed."}`); return; }
+      setDetails(data);
+      setMessage(`✅ Photo resync complete. ${data.updated || 0} listing${data.updated === 1 ? "" : "s"} updated, ${data.skipped || 0} skipped and ${data.failed || 0} failed.`);
+    } catch (error) {
+      setMessage(`❌ ${error instanceof Error ? error.message : "Unexpected photo resync error."}`);
+    } finally { setResyncingImages(false); }
+  }
 
   async function syncNow() {
     if (syncing) return;
@@ -93,6 +111,7 @@ export default function EbaySyncPage() {
             <li>Updates the website stock when eBay has changed.</li>
             <li>Imports recent eBay orders into the admin orders list.</li>
             <li>Website sales continue to push the new quantity to eBay automatically.</li>
+            <li>Existing eBay listings can have their photos updated from the website.</li>
           </ul>
 
           <button
@@ -112,6 +131,15 @@ export default function EbaySyncPage() {
             }}
           >
             {syncing ? "⏳ Syncing..." : "🔄 Sync eBay Now"}
+          </button>
+
+          <button
+            type="button"
+            onClick={resyncImages}
+            disabled={syncing || resyncingImages}
+            style={{ marginTop: "12px", background: resyncingImages ? "#64748b" : "#22c55e", color: "#ffffff", border: "none", padding: "15px 24px", borderRadius: "10px", fontSize: "17px", fontWeight: "800", cursor: syncing || resyncingImages ? "not-allowed" : "pointer" }}
+          >
+            {resyncingImages ? "⏳ Updating eBay photos..." : "📸 Update All eBay Photos"}
           </button>
 
           {message && (
