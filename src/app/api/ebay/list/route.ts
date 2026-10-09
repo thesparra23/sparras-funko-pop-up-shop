@@ -221,10 +221,7 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantLocationKey = await ensureInventoryLocation(accessToken);
-    const baseDescription = product.description?.trim() || `${product.name}. Genuine Funko collectible from Sparra's Funko Pop Up Shop.`;
-    const description = baseDescription.includes("www.sparrascollectables.co.uk")
-      ? baseDescription
-      : `${baseDescription}\n\nShop more Funko Pops and collectables at www.sparrascollectables.co.uk.`;
+    const description = "Condition as shown on photos.";
     const availableQuantity = Math.max(0, Number(product.stock) || 0);
     const aspects: Record<string, string[]> = { Brand: ["Funko"], Type: ["Vinyl Figure"], "Product Line": ["Pop!"] };
     if (product.category) aspects.Collection = [product.category];
