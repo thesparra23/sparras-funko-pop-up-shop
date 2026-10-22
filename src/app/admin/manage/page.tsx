@@ -124,7 +124,7 @@ export default function ManageProductsPage() {
       ];
       return values.map(escapeCSV).join(",");
     });
-    const csv = "\\uFEFF" + [headers.map(escapeCSV).join(","), ...rows].join("\\r\\n");
+    const csv = "\uFEFF" + [headers.map(escapeCSV).join(","), ...rows].join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
