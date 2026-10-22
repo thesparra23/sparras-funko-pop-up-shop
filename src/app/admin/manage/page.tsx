@@ -9,6 +9,12 @@ type Product = {
   id: string;
   name: string;
   image: string | null;
+  image_2?: string | null;
+  image_3?: string | null;
+  image_4?: string | null;
+  image_5?: string | null;
+  image_6?: string | null;
+  product_number?: string | null;
   price: number;
   stock: number;
   category: string | null;
@@ -68,6 +74,69 @@ export default function ManageProductsPage() {
   }
 
   function openEbayListing(listingId: string) { window.open(`https://www.ebay.co.uk/itm/${listingId}`, "_blank", "noopener,noreferrer"); }
+  function exportWhatnotCSV() {
+    const eligible = products.filter((product) => Number(product.stock) > 0 && Boolean(product.image));
+    const skipped = products.length - eligible.length;
+    if (eligible.length === 0) {
+      setMessage("No products with both an image and available stock to export.");
+      return;
+    }
+
+    const headers = [
+      "Category", "Subcategory", "Title", "Description", "Quantity", "Type", "Price",
+      "Shipping Profile", "Offerable", "Hazmat", "Condition", "Cost Per Item", "Sku",
+      "Image URL 1", "Image URL 2", "Image URL 3", "Image URL 4", "Image URL 5",
+      "Image URL 6", "Image URL 7", "Image URL 8"
+    ];
+    const escapeCSV = (value: unknown) => {
+      const text = value === null || value === undefined ? "" : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const rows = eligible.map((product) => {
+      const images = [
+        product.image, product.image_2, product.image_3, product.image_4,
+        product.image_5, product.image_6
+      ];
+      const descriptionParts = [
+        product.description?.trim(),
+        product.is_chase ? "Chase" : "",
+        product.is_vaulted ? "Limited Edition" : "",
+        product.is_exclusive ? "Exclusive" : "",
+        product.is_offer ? "Special Edition" : ""
+      ].filter(Boolean);
+      const values = [
+        "Toys & Hobbies",
+        "Funko Pop!",
+        product.name,
+        descriptionParts.join(" • ") || "Funko Pop collectible. Please see photos for details.",
+        Math.max(0, Number(product.stock) || 0),
+        "Buy It Now",
+        Number(product.price || 0).toFixed(2),
+        "Funko Pop Standard",
+        product.is_offer ? "TRUE" : "FALSE",
+        "Not Hazmat",
+        "New",
+        "",
+        product.product_number || product.id,
+        ...images,
+        "",
+        ""
+      ];
+      return values.map(escapeCSV).join(",");
+    });
+    const csv = "\\uFEFF" + [headers.map(escapeCSV).join(","), ...rows].join("\\r\\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sparras-whatnot-products.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setMessage(`Whatnot CSV downloaded: ${eligible.length} product(s) included${skipped ? `; ${skipped} product(s) skipped because they have no image or no stock` : ""}. Check the file before importing it into Whatnot.`);
+  }
+
 
   async function listOnEbay(product: Product, openListing = true) {
     if (listingProductId || bulkListing) return false;
@@ -141,7 +210,7 @@ export default function ManageProductsPage() {
       <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px", marginBottom: "20px", flexWrap: "wrap" }}>
           <div><h1 style={{ fontSize: "42px", margin: 0 }}>📦 Manage Funko Pops</h1><p style={{ color: "#94a3b8", fontSize: "18px", marginTop: "10px" }}>Edit, update or remove your products.</p></div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}><a href="/admin" style={{ background: "#facc15", color: "#111827", padding: "12px 20px", borderRadius: "8px", textDecoration: "none", fontWeight: "700" }}>+ Add Product</a>{unlistedCount > 0 && <button type="button" onClick={listAllUnlistedOnEbay} disabled={bulkListing || listingProductId !== null} style={{ background: bulkListing ? "#64748b" : "#22c55e", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: bulkListing ? "not-allowed" : "pointer" }}>{bulkListing ? `⏳ Listing ${bulkProgress.current}/${bulkProgress.total}...` : `🚀 List All ${unlistedCount} on eBay`}</button>}</div>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}><a href="/admin" style={{ background: "#facc15", color: "#111827", padding: "12px 20px", borderRadius: "8px", textDecoration: "none", fontWeight: "700" }}>+ Add Product</a><button type="button" onClick={exportWhatnotCSV} disabled={products.length === 0} style={{ background: "#7c3aed", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: products.length === 0 ? "not-allowed" : "pointer" }}>⬇️ Export Whatnot CSV</button>{unlistedCount > 0 && <button type="button" onClick={listAllUnlistedOnEbay} disabled={bulkListing || listingProductId !== null} style={{ background: bulkListing ? "#64748b" : "#22c55e", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: bulkListing ? "not-allowed" : "pointer" }}>{bulkListing ? `⏳ Listing ${bulkProgress.current}/${bulkProgress.total}...` : `🚀 List All ${unlistedCount} on eBay`}</button>}</div>
         </div>
 
         {message && <div style={{ background: "#1e293b", border: "1px solid #334155", padding: "14px 18px", borderRadius: "8px", marginBottom: "20px" }}>{message}</div>}
