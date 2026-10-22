@@ -75,8 +75,19 @@ export default function ManageProductsPage() {
 
   function openEbayListing(listingId: string) { window.open(`https://www.ebay.co.uk/itm/${listingId}`, "_blank", "noopener,noreferrer"); }
   function exportWhatnotCSV() {
-    const eligible = products.filter((product) => Number(product.stock) > 0 && Boolean(product.image));
+    const eligible = products.filter((product) =>
+      Number(product.stock) > 0 &&
+      Boolean(product.image) &&
+      Number.isFinite(Number(product.price)) &&
+      Number(product.price) > 0 &&
+      Number.isInteger(Number(product.price))
+    );
     const skipped = products.length - eligible.length;
+    const skippedPrice = products.filter((product) =>
+      Number(product.stock) > 0 &&
+      Boolean(product.image) &&
+      (!Number.isFinite(Number(product.price)) || Number(product.price) <= 0 || !Number.isInteger(Number(product.price)))
+    ).length;
     if (eligible.length === 0) {
       setMessage("No products with both an image and available stock to export.");
       return;
@@ -111,7 +122,7 @@ export default function ManageProductsPage() {
         descriptionParts.join(" • ") || "Funko Pop collectible. Please see photos for details.",
         Math.max(0, Number(product.stock) || 0),
         "Buy It Now",
-        Number(product.price || 0).toFixed(2),
+        Number(product.price),
         "Funko Pop Standard",
         "TRUE",
         "Not Hazmat",
@@ -134,7 +145,7 @@ export default function ManageProductsPage() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setMessage(`Whatnot CSV downloaded: ${eligible.length} product(s) included${skipped ? `; ${skipped} product(s) skipped because they have no image or no stock` : ""}. Review condition and prices before importing; condition defaults to Near Mint. Offers are enabled.`);
+    setMessage(`Whatnot CSV downloaded: ${eligible.length} product(s) included${skipped ? `; ${skipped} product(s) skipped because they have no image, no stock, or an invalid price` : ""}${skippedPrice ? `; ${skippedPrice} in-stock product(s) with prices containing pence were excluded because Whatnot requires whole-number prices` : ""}. Condition defaults to Near Mint. Offers are enabled.`);
   }
 
 
