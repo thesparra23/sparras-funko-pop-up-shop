@@ -74,22 +74,51 @@ export default function ManageProductsPage() {
   }
 
   function openEbayListing(listingId: string) { window.open(`https://www.ebay.co.uk/itm/${listingId}`, "_blank", "noopener,noreferrer"); }
-  function exportWhatnotCSV() {
-    const eligible = products.filter((product) =>
+  function exportWhatnotCSV(mode: "all" | "new" = "all") {
+    const eligibleAll = products.filter((product) =>
       Number(product.stock) > 0 &&
       Boolean(product.image) &&
       Number.isFinite(Number(product.price)) &&
       Number(product.price) > 0 &&
       Number.isInteger(Number(product.price))
     );
-    const skipped = products.length - eligible.length;
     const skippedPrice = products.filter((product) =>
       Number(product.stock) > 0 &&
       Boolean(product.image) &&
       (!Number.isFinite(Number(product.price)) || Number(product.price) <= 0 || !Number.isInteger(Number(product.price)))
     ).length;
+
+    // This browser remembers product IDs already exported to Whatnot.
+    // On the first "new only" export, treat current eligible stock as the existing baseline.
+    const storageKey = "sparras-whatnot-exported-product-ids";
+    let exportedIds: string[] = [];
+    let firstNewExport = false;
+    try {
+      const stored = window.localStorage.getItem(storageKey);
+      if (stored === null) {
+        if (mode === "new") {
+          exportedIds = eligibleAll.map((product) => product.id);
+          window.localStorage.setItem(storageKey, JSON.stringify(exportedIds));
+          setMessage("First-time setup complete: current eligible products have been marked as your existing Whatnot stock, so they won't be exported as new. Add new products and use Export New Products Only next time.");
+          return;
+        }
+      } else {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) exportedIds = parsed.filter((id): id is string => typeof id === "string");
+      }
+    } catch {
+      setMessage("Could not access this browser's saved Whatnot export history. Please allow local storage and try again.");
+      return;
+    }
+
+    const eligible = mode === "new"
+      ? eligibleAll.filter((product) => !exportedIds.includes(product.id))
+      : eligibleAll;
+    const skipped = products.length - eligible.length;
     if (eligible.length === 0) {
-      setMessage("No products with both an image and available stock to export.");
+      setMessage(mode === "new"
+        ? "No new eligible products to export. Products must have stock, an image, and a whole-pound price, and must not have been exported before."
+        : "No products with stock, an image, and a valid whole-pound price to export.");
       return;
     }
 
@@ -145,7 +174,16 @@ export default function ManageProductsPage() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setMessage(`Whatnot CSV downloaded: ${eligible.length} product(s) included${skipped ? `; ${skipped} product(s) skipped because they have no image, no stock, or an invalid price` : ""}${skippedPrice ? `; ${skippedPrice} in-stock product(s) with prices containing pence were excluded because Whatnot requires whole-number prices` : ""}. Condition defaults to Near Mint. Offers are enabled.`);
+
+    try {
+      const updatedIds = Array.from(new Set([...exportedIds, ...eligible.map((product) => product.id)]));
+      window.localStorage.setItem(storageKey, JSON.stringify(updatedIds));
+    } catch {
+      setMessage("CSV downloaded, but this browser could not save export history. New-only exports may include duplicates next time.");
+      return;
+    }
+
+    setMessage(`Whatnot CSV downloaded: ${eligible.length} product(s) included${mode === "new" ? " (new products only)" : " (all eligible products)"}${skipped ? `; ${skipped} product(s) not included because they were already exported or are ineligible` : ""}${skippedPrice ? `; ${skippedPrice} in-stock product(s) with prices containing pence were excluded because Whatnot requires whole-number prices` : ""}. Export history is saved in this browser. Condition defaults to Near Mint. Offers are enabled.`);
   }
 
 
@@ -221,7 +259,7 @@ export default function ManageProductsPage() {
       <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px", marginBottom: "20px", flexWrap: "wrap" }}>
           <div><h1 style={{ fontSize: "42px", margin: 0 }}>📦 Manage Funko Pops</h1><p style={{ color: "#94a3b8", fontSize: "18px", marginTop: "10px" }}>Edit, update or remove your products.</p></div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}><a href="/admin" style={{ background: "#facc15", color: "#111827", padding: "12px 20px", borderRadius: "8px", textDecoration: "none", fontWeight: "700" }}>+ Add Product</a><button type="button" onClick={exportWhatnotCSV} disabled={products.length === 0} style={{ background: "#7c3aed", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: products.length === 0 ? "not-allowed" : "pointer" }}>⬇️ Export Whatnot CSV</button>{unlistedCount > 0 && <button type="button" onClick={listAllUnlistedOnEbay} disabled={bulkListing || listingProductId !== null} style={{ background: bulkListing ? "#64748b" : "#22c55e", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: bulkListing ? "not-allowed" : "pointer" }}>{bulkListing ? `⏳ Listing ${bulkProgress.current}/${bulkProgress.total}...` : `🚀 List All ${unlistedCount} on eBay`}</button>}</div>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}><a href="/admin" style={{ background: "#facc15", color: "#111827", padding: "12px 20px", borderRadius: "8px", textDecoration: "none", fontWeight: "700" }}>+ Add Product</a><button type="button" onClick={() => exportWhatnotCSV("all")} disabled={products.length === 0} style={{ background: "#7c3aed", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: products.length === 0 ? "not-allowed" : "pointer" }}>⬇️ Export All to Whatnot</button><button type="button" onClick={() => exportWhatnotCSV("new")} disabled={products.length === 0} style={{ background: "#9333ea", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: products.length === 0 ? "not-allowed" : "pointer" }}>✨ Export New Products Only</button>{unlistedCount > 0 && <button type="button" onClick={listAllUnlistedOnEbay} disabled={bulkListing || listingProductId !== null} style={{ background: bulkListing ? "#64748b" : "#22c55e", color: "#ffffff", border: "none", padding: "12px 20px", borderRadius: "8px", fontWeight: "800", cursor: bulkListing ? "not-allowed" : "pointer" }}>{bulkListing ? `⏳ Listing ${bulkProgress.current}/${bulkProgress.total}...` : `🚀 List All ${unlistedCount} on eBay`}</button>}</div>
         </div>
 
         {message && <div style={{ background: "#1e293b", border: "1px solid #334155", padding: "14px 18px", borderRadius: "8px", marginBottom: "20px" }}>{message}</div>}
