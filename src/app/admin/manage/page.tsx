@@ -92,7 +92,6 @@ export default function ManageProductsPage() {
     // On the first "new only" export, treat current eligible stock as the existing baseline.
     const storageKey = "sparras-whatnot-exported-product-ids";
     let exportedIds: string[] = [];
-    let firstNewExport = false;
     try {
       const stored = window.localStorage.getItem(storageKey);
       if (stored === null) {
