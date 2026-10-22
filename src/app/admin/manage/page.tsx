@@ -113,9 +113,9 @@ export default function ManageProductsPage() {
         "Buy It Now",
         Number(product.price || 0).toFixed(2),
         "Funko Pop Standard",
-        product.is_offer ? "TRUE" : "FALSE",
+        "TRUE",
         "Not Hazmat",
-        "New",
+        "Near Mint",
         "",
         product.product_number || product.id,
         ...images,
@@ -134,7 +134,7 @@ export default function ManageProductsPage() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    setMessage(`Whatnot CSV downloaded: ${eligible.length} product(s) included${skipped ? `; ${skipped} product(s) skipped because they have no image or no stock` : ""}. Check the file before importing it into Whatnot.`);
+    setMessage(`Whatnot CSV downloaded: ${eligible.length} product(s) included${skipped ? `; ${skipped} product(s) skipped because they have no image or no stock` : ""}. Review condition and prices before importing; condition defaults to Near Mint. Offers are enabled.`);
   }
 
 
