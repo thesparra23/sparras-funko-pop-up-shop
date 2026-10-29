@@ -569,7 +569,7 @@ export default function Home() {
               }}
             >
               <img
-                src="/images/dis-and-ko-merch-den.jpeg"
+                src="/images/dis-and-ko-merch-den.webp"
                 alt="Dis & Ko Merch Den"
                 style={{
                   display: "block",
