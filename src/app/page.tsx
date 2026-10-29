@@ -543,6 +543,57 @@ export default function Home() {
       <main>
         {category === "home" && <Hero />}
 
+        {category === "home" && (
+          <section
+            aria-label="Our sister store"
+            style={{
+              maxWidth: "1100px",
+              margin: "24px auto 36px",
+              padding: "0 16px",
+              textAlign: "center",
+            }}
+          >
+            <a
+              href="https://disandkomerch.netlify.app/dis-ko"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "block",
+                padding: "18px",
+                borderRadius: "16px",
+                border: "1px solid #e7d9c8",
+                background: "#fffaf3",
+                color: "#222222",
+                textDecoration: "none",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+              }}
+            >
+              <img
+                src="/images/dis-and-ko-merch-den.jpeg"
+                alt="Dis & Ko Merch Den"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  maxWidth: "760px",
+                  height: "auto",
+                  margin: "0 auto 14px",
+                  borderRadius: "8px",
+                }}
+              />
+              <p
+                style={{
+                  margin: "0",
+                  fontSize: "clamp(17px, 2.4vw, 23px)",
+                  fontWeight: 800,
+                  lineHeight: 1.4,
+                }}
+              >
+                Visit our Sister Store here for all your Disney merchandise at great prices
+              </p>
+            </a>
+          </section>
+        )}
+
         <section
           className="products-section"
           id="shop"
